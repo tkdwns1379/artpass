@@ -58,9 +58,13 @@ export async function getUniversity(id: string) {
 // =============================================
 async function invokeFunction(name: string, formData: FormData) {
   const { data, error } = await supabase.functions.invoke(name, { body: formData })
-  if (error) throw new Error(data?.message || error.message)
-  if (data?.message && !data.feedback && !data.recommendation && !data.rate && !data.advice) {
-    throw new Error(data.message)
+  if (error) {
+    let msg = error.message
+    try {
+      const body = await (error as { context?: Response }).context?.json?.()
+      if (body?.message) msg = body.message
+    } catch {}
+    throw new Error(msg)
   }
   return data
 }
