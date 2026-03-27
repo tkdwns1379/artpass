@@ -48,8 +48,18 @@ export default function Register() {
             showIcon
             message="이메일이 오지 않았다면?"
             description="스팸 편지함을 확인하거나, 잠시 후 다시 시도해주세요."
-            style={{ marginBottom: 20, textAlign: 'left' }}
+            style={{ marginBottom: 16, textAlign: 'left' }}
           />
+          <Alert
+            type="warning"
+            showIcon
+            message="이메일을 잘못 입력했나요?"
+            description="아래 버튼을 눌러 올바른 이메일로 다시 가입해주세요."
+            style={{ marginBottom: 16, textAlign: 'left' }}
+          />
+          <Button block style={{ marginBottom: 8 }} onClick={() => { setRegistered(false); setRegisteredEmail(''); }}>
+            이메일 다시 입력하기
+          </Button>
           <Button type="primary" block onClick={() => navigate('/login')}>
             로그인 페이지로 이동
           </Button>
