@@ -80,8 +80,11 @@ export default function Home() {
       }}>
         <Title level={2} style={{ marginBottom: 4, color: '#1677ff' }}>모든 디자인 입시 정보의 모음집!</Title>
         <Title level={3} style={{ marginTop: 0, marginBottom: 28, color: '#333', fontWeight: 400 }}>아트패스</Title>
-        <Text style={{ fontSize: 12, color: '#666', marginBottom: 8, display: 'block' }}>
+        <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>
           추가됐으면 하는 학교·학과는 1:1 채팅으로 문의해 주세요 😊
+        </Text>
+        <Text style={{ fontSize: 12, color: '#666', marginBottom: 8, display: 'block' }}>
+          전형계획 공개 시기: 3~4월 · 모집요강 공개 시기: 5~7월
         </Text>
         <Input
           size="large"
