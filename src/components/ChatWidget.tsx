@@ -85,7 +85,10 @@ export default function ChatWidget() {
       if (error) throw new Error(error.message);
       setInput('');
       await fetchMessages();
-    } catch {} finally {
+    } catch (e: unknown) {
+      const msg = (e as Error).message || '전송 실패';
+      alert('메시지 전송 오류: ' + msg);
+    } finally {
       setSending(false);
     }
   }
