@@ -28,6 +28,7 @@ interface UserProfile {
   email: string;
   role: string;
   isPremium?: boolean;
+  isBanned?: boolean;
   createdAt: string;
 }
 
@@ -81,6 +82,9 @@ export default function Admin() {
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const [newMsgModalOpen, setNewMsgModalOpen] = useState(false);
+  const [newMsgUserId, setNewMsgUserId] = useState<string | undefined>();
+  const [newMsgContent, setNewMsgContent] = useState('');
 
   // PDF 파싱 관련
   const [pdfParsing, setPdfParsing] = useState(false);
@@ -112,9 +116,10 @@ export default function Admin() {
         (data ?? []).map(p => ({
           id: p.id,
           name: p.name,
-          email: '',  // profiles에는 email 없음 — auth.users에 있음
+          email: '',
           role: p.role,
           isPremium: p.is_premium,
+          isBanned: p.is_banned,
           createdAt: p.created_at,
         }))
       );
@@ -345,19 +350,54 @@ export default function Admin() {
   // =============================================
   // 회원 관리
   // =============================================
-  async function handleDeleteUser(id: string) {
+  async function handleBanUser(id: string) {
     try {
-      // auth.users 삭제는 service role이 필요 → profiles만 삭제
-      // (실제로는 Supabase 대시보드나 서비스 롤 호출 필요)
       const { error } = await supabase
         .from('profiles')
-        .delete()
+        .update({ is_banned: true })
         .eq('id', id);
       if (error) throw new Error(error.message);
       message.success('회원이 추방되었습니다.');
       fetchUsers();
     } catch (e: unknown) {
       message.error((e as Error).message || '추방에 실패했습니다.');
+    }
+  }
+
+  async function handleUnbanUser(id: string) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_banned: false })
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+      message.success('추방이 해제되었습니다.');
+      fetchUsers();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '처리에 실패했습니다.');
+    }
+  }
+
+  async function handleSendNewMsg() {
+    if (!newMsgUserId || !newMsgContent.trim()) return;
+    try {
+      const { error } = await supabase.from('messages').insert({
+        user_id: newMsgUserId,
+        sender_role: 'admin',
+        content: newMsgContent.trim(),
+        read_by_admin: true,
+        read_by_user: false,
+      });
+      if (error) throw new Error(error.message);
+      message.success('쪽지를 보냈습니다.');
+      setNewMsgModalOpen(false);
+      setNewMsgUserId(undefined);
+      setNewMsgContent('');
+      setSelectedUserId(newMsgUserId);
+      fetchChatMessages(newMsgUserId);
+      fetchConversations();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '전송에 실패했습니다.');
     }
   }
 
@@ -423,23 +463,41 @@ export default function Admin() {
       render: (v: string) => v?.slice(0, 10),
     },
     {
-      title: '관리', key: 'action', width: 160,
+      title: '상태', key: 'banned', width: 90,
+      render: (_: unknown, u: UserProfile) => u.isBanned
+        ? <Tag color="red">추방됨</Tag>
+        : <Tag color="green">정상</Tag>,
+    },
+    {
+      title: '관리', key: 'action', width: 200,
       render: (_: unknown, u: UserProfile) => u.role === 'admin' ? null : (
         <Space>
-          <Button
-            size="small"
-            type={u.isPremium ? 'default' : 'primary'}
-            onClick={() => handleTogglePremium(u.id, !!u.isPremium)}
-          >
-            {u.isPremium ? '해제' : '프리미엄 승인'}
-          </Button>
-          <Popconfirm
-            title={`${u.name} 회원을 추방하시겠습니까?`}
-            onConfirm={() => handleDeleteUser(u.id)}
-            okText="추방" cancelText="취소" okButtonProps={{ danger: true }}
-          >
-            <Button size="small" danger>추방</Button>
-          </Popconfirm>
+          {!u.isBanned && (
+            <Button
+              size="small"
+              type={u.isPremium ? 'default' : 'primary'}
+              onClick={() => handleTogglePremium(u.id, !!u.isPremium)}
+            >
+              {u.isPremium ? '해제' : '프리미엄'}
+            </Button>
+          )}
+          {u.isBanned ? (
+            <Popconfirm
+              title={`${u.name} 회원의 추방을 해제하시겠습니까?`}
+              onConfirm={() => handleUnbanUser(u.id)}
+              okText="해제" cancelText="취소"
+            >
+              <Button size="small">추방해제</Button>
+            </Popconfirm>
+          ) : (
+            <Popconfirm
+              title={`${u.name} 회원을 추방하시겠습니까?`}
+              onConfirm={() => handleBanUser(u.id)}
+              okText="추방" cancelText="취소" okButtonProps={{ danger: true }}
+            >
+              <Button size="small" danger>추방</Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -510,6 +568,11 @@ export default function Admin() {
             </Badge>
           ),
           children: (
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" icon={<SendOutlined />} onClick={() => setNewMsgModalOpen(true)}>
+                새 쪽지 보내기
+              </Button>
+            </div>
             <div style={{ display: 'flex', height: 520, border: '1px solid #f0f0f0', borderRadius: 8, overflow: 'hidden' }}>
               {/* 대화 목록 */}
               <div style={{ width: 240, borderRight: '1px solid #f0f0f0', overflowY: 'auto', background: '#fafafa' }}>
@@ -656,6 +719,35 @@ export default function Admin() {
             <Input.TextArea rows={2} placeholder="추가 설명" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 새 쪽지 보내기 모달 */}
+      <Modal
+        title="새 쪽지 보내기"
+        open={newMsgModalOpen}
+        onOk={handleSendNewMsg}
+        onCancel={() => { setNewMsgModalOpen(false); setNewMsgUserId(undefined); setNewMsgContent(''); }}
+        okText="보내기" cancelText="취소"
+      >
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Select
+            placeholder="받는 회원 선택"
+            value={newMsgUserId}
+            onChange={setNewMsgUserId}
+            style={{ width: '100%' }}
+            options={users.filter(u => u.role !== 'admin' && !u.isBanned).map(u => ({
+              label: u.name || u.id.slice(0, 8),
+              value: u.id,
+            }))}
+          />
+          <Input.TextArea
+            placeholder="내용을 입력하세요"
+            value={newMsgContent}
+            onChange={e => setNewMsgContent(e.target.value)}
+            rows={4}
+            maxLength={500}
+          />
+        </div>
       </Modal>
 
       {/* PDF 파싱 결과 확인 모달 */}

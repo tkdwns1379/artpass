@@ -37,6 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('프로필 로드 오류:', error)
     }
 
+    // 추방된 회원 자동 로그아웃
+    if (data?.is_banned) {
+      await supabase.auth.signOut()
+      setUser(null)
+      alert('이용이 제한된 계정입니다.')
+      return
+    }
+
     // app_metadata.role 또는 profiles.role 우선 적용
     const role = (supabaseUser.app_metadata?.role as string)
       ?? data?.role
