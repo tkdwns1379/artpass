@@ -29,6 +29,7 @@ interface UserProfile {
   role: string;
   isPremium?: boolean;
   isBanned?: boolean;
+  isConfirmed?: boolean;
   createdAt: string;
 }
 
@@ -120,6 +121,7 @@ export default function Admin() {
           role: p.role,
           isPremium: p.is_premium,
           isBanned: p.is_banned,
+          isConfirmed: p.is_confirmed,
           createdAt: p.created_at,
         }))
       );
@@ -463,10 +465,12 @@ export default function Admin() {
       render: (v: string) => v?.slice(0, 10),
     },
     {
-      title: '상태', key: 'banned', width: 90,
-      render: (_: unknown, u: UserProfile) => u.isBanned
-        ? <Tag color="red">추방됨</Tag>
-        : <Tag color="green">정상</Tag>,
+      title: '상태', key: 'status', width: 100,
+      render: (_: unknown, u: UserProfile) => {
+        if (u.isBanned) return <Tag color="red">추방됨</Tag>;
+        if (!u.isConfirmed) return <Tag color="orange">인증대기</Tag>;
+        return <Tag color="green">정상</Tag>;
+      },
     },
     {
       title: '관리', key: 'action', width: 200,
@@ -568,6 +572,7 @@ export default function Admin() {
             </Badge>
           ),
           children: (
+            <>
             <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" icon={<SendOutlined />} onClick={() => setNewMsgModalOpen(true)}>
                 새 쪽지 보내기
@@ -668,6 +673,7 @@ export default function Admin() {
                 )}
               </div>
             </div>
+            </>
           ),
         },
       ]} />
