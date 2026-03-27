@@ -37,12 +37,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('프로필 로드 오류:', error)
     }
 
-    // 프로필 조회 실패해도 기본 정보로 로그인 유지
+    // app_metadata.role 또는 profiles.role 우선 적용
+    const role = (supabaseUser.app_metadata?.role as string)
+      ?? data?.role
+      ?? 'user'
+
     setUser({
       id: supabaseUser.id,
       name: data?.name ?? supabaseUser.email!.split('@')[0],
       email: supabaseUser.email!,
-      role: data?.role ?? 'user',
+      role,
       isPremium: data?.is_premium ?? false,
     })
   }
