@@ -1,0 +1,17 @@
+{
+  "name": "artpass-pdf-tools",
+  "version": "1.0.0",
+  "description": "아트패스 모집요강 PDF 자동 수집/파싱 도구",
+  "scripts": {
+    "download": "node 1-find-pdfs.js",
+    "parse": "node 2-parse-pdfs.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@seald-io/nedb": "^4.1.2",
+    "@supabase/supabase-js": "^2.100.1",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.6.1"
+  }
+}
