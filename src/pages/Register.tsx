@@ -12,6 +12,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [form] = Form.useForm();
 
   async function handleSubmit(values: { name: string; email: string; password: string }) {
     setLoading(true);
@@ -57,7 +58,7 @@ export default function Register() {
             description="아래 버튼을 눌러 올바른 이메일로 다시 가입해주세요."
             style={{ marginBottom: 16, textAlign: 'left' }}
           />
-          <Button block style={{ marginBottom: 8 }} onClick={() => { setRegistered(false); setRegisteredEmail(''); }}>
+          <Button block style={{ marginBottom: 8 }} onClick={() => { setRegistered(false); setRegisteredEmail(''); form.resetFields(); }}>
             이메일 다시 입력하기
           </Button>
           <Button type="primary" block onClick={() => navigate('/login')}>
@@ -76,7 +77,7 @@ export default function Register() {
           <Text type="secondary">가입 후 모든 입시 정보를 확인하세요</Text>
         </div>
 
-        <Form layout="vertical" onFinish={handleSubmit}>
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="name" rules={[{ required: true, message: '이름을 입력하세요' }]}>
             <Input prefix={<UserOutlined />} placeholder="이름" size="large" />
           </Form.Item>
