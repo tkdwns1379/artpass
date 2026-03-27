@@ -46,6 +46,12 @@ export default function MainLayout() {
       onClick: () => navigate('/admin'),
     }] : []),
     {
+      key: 'mypage',
+      icon: <UserOutlined />,
+      label: '마이페이지',
+      onClick: () => navigate('/mypage'),
+    },
+    {
       key: 'password',
       icon: <LockOutlined />,
       label: '비밀번호 변경',

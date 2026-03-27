@@ -7,6 +7,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Admin from '@/pages/Admin';
 import Feedback from '@/pages/Feedback';
+import MyPage from '@/pages/MyPage';
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,6 +27,7 @@ function AppRoutes() {
         <Route path="register" element={<Register />} />
         <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="feedback" element={<Feedback />} />
+        <Route path="mypage" element={<MyPage />} />
       </Route>
     </Routes>
   );
