@@ -27,21 +27,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function loadProfile(supabaseUser: SupabaseUser) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', supabaseUser.id)
       .single()
 
-    if (data) {
-      setUser({
-        id: supabaseUser.id,
-        name: data.name,
-        email: supabaseUser.email!,
-        role: data.role,
-        isPremium: data.is_premium,
-      })
+    if (error) {
+      console.error('프로필 로드 오류:', error)
     }
+
+    // 프로필 조회 실패해도 기본 정보로 로그인 유지
+    setUser({
+      id: supabaseUser.id,
+      name: data?.name ?? supabaseUser.email!.split('@')[0],
+      email: supabaseUser.email!,
+      role: data?.role ?? 'user',
+      isPremium: data?.is_premium ?? false,
+    })
   }
 
   useEffect(() => {
