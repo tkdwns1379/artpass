@@ -56,34 +56,27 @@ export async function getUniversity(id: string) {
 // =============================================
 // Edge Function 호출 헬퍼
 // =============================================
-export async function callFeedback(formData: FormData) {
-  const { data, error } = await supabase.functions.invoke('feedback', {
-    body: formData,
-  })
-  if (error) throw new Error(error.message)
+async function invokeFunction(name: string, formData: FormData) {
+  const { data, error } = await supabase.functions.invoke(name, { body: formData })
+  if (error) throw new Error(data?.message || error.message)
+  if (data?.message && !data.feedback && !data.recommendation && !data.rate && !data.advice) {
+    throw new Error(data.message)
+  }
   return data
+}
+
+export async function callFeedback(formData: FormData) {
+  return invokeFunction('feedback', formData)
 }
 
 export async function callFeedbackRecommend(formData: FormData) {
-  const { data, error } = await supabase.functions.invoke('feedback-recommend', {
-    body: formData,
-  })
-  if (error) throw new Error(error.message)
-  return data
+  return invokeFunction('feedback-recommend', formData)
 }
 
 export async function callFeedbackAcceptance(formData: FormData) {
-  const { data, error } = await supabase.functions.invoke('feedback-acceptance', {
-    body: formData,
-  })
-  if (error) throw new Error(error.message)
-  return data
+  return invokeFunction('feedback-acceptance', formData)
 }
 
 export async function callFeedbackAdvice(formData: FormData) {
-  const { data, error } = await supabase.functions.invoke('feedback-advice', {
-    body: formData,
-  })
-  if (error) throw new Error(error.message)
-  return data
+  return invokeFunction('feedback-advice', formData)
 }
