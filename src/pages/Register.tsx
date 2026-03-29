@@ -5,27 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { REGIONS } from '@/data/regions';
+import { NICKNAME_REGEX, containsBannedWord } from '@/utils/nicknameValidator';
 
 const { Title, Text } = Typography;
-
-// 비속어/욕설 목록
-const BANNED_WORDS = new Set([
-  '시발','씨발','씨팔','쉬발','시팔','ㅅㅂ','ㅆㅂ',
-  '개새끼','개쉐끼','개세끼','개씨발',
-  '병신','ㅂㅅ','보지','자지','창녀','창년','창놈',
-  '새끼','쌍년','쌍놈','지랄','존나','좆','ㅈㄴ',
-  'fuck','shit','bitch','dick','pussy','cock','cunt','nigger','nigga','bastard','whore','slut','ass',
-]);
-
-function containsBannedWord(value: string): boolean {
-  const lower = value.toLowerCase();
-  for (const word of BANNED_WORDS) {
-    if (lower.includes(word)) return true;
-  }
-  return false;
-}
-
-const NICKNAME_REGEX = /^[가-힣a-zA-Z]{1,7}$/;
 
 const TERMS_CONTENT = `제1조 (목적)
 본 약관은 아트패스(이하 "서비스")가 제공하는 디자인 입시 정보 서비스의 이용 조건 및 절차, 이용자와 서비스의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
