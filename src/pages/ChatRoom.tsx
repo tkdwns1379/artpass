@@ -185,12 +185,17 @@ export default function ChatRoom() {
     if (!roomId) return;
 
     (async () => {
-      await fetchRoom();
-      const map = await fetchProfiles([user.id]);
-      await fetchMembers(map);
-      await fetchMessages(map);
-      await joinRoom();
-      setLoading(false);
+      try {
+        await fetchRoom();
+        const map = await fetchProfiles([user.id]);
+        await fetchMessages(map);
+        await joinRoom();
+        await fetchMembers(map);
+      } catch (err) {
+        console.error('ChatRoom init error:', err);
+      } finally {
+        setLoading(false);
+      }
     })();
 
     const channel = supabase
