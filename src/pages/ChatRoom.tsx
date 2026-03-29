@@ -57,7 +57,19 @@ export default function ChatRoom() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const joinedRef = useRef(false);
+  const sessionTokenRef = useRef<string | null>(null);
   const [profileMap, setProfileMap] = useState<Record<string, { name: string; role: string }>>({});
+
+  // 세션 토큰을 ref에 저장 (pagehide 핸들러에서 동기적으로 접근하기 위해)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      sessionTokenRef.current = session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      sessionTokenRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   async function fetchProfiles(ids: string[]) {
     if (ids.length === 0) return {};
@@ -266,12 +278,30 @@ export default function ChatRoom() {
       )
       .subscribe();
 
-    const handleBeforeUnload = () => { leaveRoom(); };
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    // pagehide: persisted=false → 탭/앱 완전 종료 → 방 나가기
+    //           persisted=true  → 백그라운드/캐시  → 유지
+    // keepalive:true 로 모바일에서 페이지 언로드 시에도 요청 완료 보장
+    const handlePageHide = (e: PageTransitionEvent) => {
+      if (!e.persisted && joinedRef.current && sessionTokenRef.current && roomId) {
+        joinedRef.current = false;
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/room-action`;
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionTokenRef.current}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ action: 'leave', room_id: roomId }),
+          keepalive: true,
+        });
+      }
+    };
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       supabase.removeChannel(channel);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
       if (minimizingRef.current) {
         // 미니채팅으로 전환 → leaveRoom 호출 안 함
         minimizingRef.current = false;
