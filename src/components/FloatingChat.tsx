@@ -213,7 +213,6 @@ export default function FloatingChat() {
           alignItems: 'center',
           gap: 6,
           cursor: 'grab',
-          activeOpacity: 0.9,
         }}
       >
         <Text
