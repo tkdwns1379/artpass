@@ -75,14 +75,17 @@ export default function MainLayout() {
         borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 100,
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }}>
-        <Typography.Title level={4} style={{ margin: 0, cursor: 'pointer', color: '#1677ff' }} onClick={() => navigate('/')}>
-          아트패스
-        </Typography.Title>
+        <Space size={0} align="center">
+          <Typography.Title level={4} style={{ margin: 0, cursor: 'pointer', color: '#1677ff' }} onClick={() => navigate('/')}>
+            아트패스
+          </Typography.Title>
+          <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 12px' }} />
+          <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555', fontWeight: 500 }}>
+            소통 라운지
+          </Button>
+        </Space>
 
         <Space>
-          <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555' }}>
-            채팅방
-          </Button>
           {user ? (
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
