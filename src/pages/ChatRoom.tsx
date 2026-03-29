@@ -2,17 +2,18 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Button, Input, Tag, Typography, Avatar, Spin, Popconfirm,
-  message as antMessage, Tooltip,
+  message as antMessage, Tooltip, Drawer, Grid,
 } from 'antd';
 import {
   ArrowLeftOutlined, SendOutlined, UserOutlined,
-  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined,
+  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFloatingChat } from '@/contexts/FloatingChatContext';
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 interface RoomInfo {
   id: string;
@@ -50,6 +51,9 @@ export default function ChatRoom() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [kicked, setKicked] = useState(false);
+  const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.sm;
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const joinedRef = useRef(false);
@@ -394,9 +398,20 @@ export default function ChatRoom() {
             ))}
           </div>
         </div>
-        <Text type="secondary" style={{ fontSize: 13 }}>
-          {members.length}/{room?.max_members ?? 10}명
-        </Text>
+        {isMobile ? (
+          <Button
+            type="text"
+            icon={<TeamOutlined />}
+            onClick={() => setMemberDrawerOpen(true)}
+            style={{ color: '#555', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            {members.length}명
+          </Button>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {members.length}/{room?.max_members ?? 10}명
+          </Text>
+        )}
       </div>
 
       {/* 본문 */}
@@ -476,8 +491,8 @@ export default function ChatRoom() {
           </div>
         </div>
 
-        {/* 멤버 사이드바 */}
-        <div style={{
+        {/* 멤버 사이드바 — 데스크톱만 */}
+        {!isMobile && <div style={{
           width: 180, borderLeft: '1px solid #f0f0f0',
           background: '#fafafa', overflowY: 'auto',
           padding: '12px 0',
@@ -556,8 +571,71 @@ export default function ChatRoom() {
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
+
+      {/* 모바일 참여자 Drawer */}
+      <Drawer
+        title={`참여자 ${members.length}명`}
+        placement="right"
+        open={memberDrawerOpen}
+        onClose={() => setMemberDrawerOpen(false)}
+        width={260}
+        styles={{ body: { padding: '8px 0' } }}
+      >
+        {members.map((member) => {
+          const isMe = member.user_id === user?.id;
+          const isMemberOwner = member.user_id === room?.created_by;
+          const isMemberAdmin = member.role === 'admin';
+
+          return (
+            <div
+              key={member.user_id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px',
+                background: isMe ? '#e6f4ff' : undefined,
+                borderBottom: '1px solid #f5f5f5',
+              }}
+            >
+              <Avatar size={32} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {isMemberAdmin && <SafetyCertificateFilled style={{ color: '#ff4d4f', fontSize: 12 }} />}
+                  {isMemberOwner && !isMemberAdmin && <CrownFilled style={{ color: '#faad14', fontSize: 12 }} />}
+                  <Text style={{ fontSize: 14, fontWeight: isMe ? 600 : 400 }} ellipsis>
+                    {member.name}{isMe ? ' (나)' : ''}
+                  </Text>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {canTransfer(member) && (
+                  <Popconfirm
+                    title={`${member.name}님에게 방장을 위임할까요?`}
+                    onConfirm={() => { handleTransfer(member.user_id); setMemberDrawerOpen(false); }}
+                    okText="위임" cancelText="취소"
+                    placement="left"
+                  >
+                    <Tooltip title="방장 위임">
+                      <Button type="text" size="small" icon={<SwapOutlined />} style={{ color: '#faad14' }} />
+                    </Tooltip>
+                  </Popconfirm>
+                )}
+                {canKick(member) && (
+                  <Popconfirm
+                    title={`${member.name}님을 추방할까요?`}
+                    onConfirm={() => { handleKick(member.user_id); setMemberDrawerOpen(false); }}
+                    okText="추방" cancelText="취소" okButtonProps={{ danger: true }}
+                    placement="left"
+                  >
+                    <Button type="text" size="small" danger icon={<StopOutlined />} />
+                  </Popconfirm>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </Drawer>
     </div>
   );
 }
