@@ -1,54 +1,26 @@
 import { useState } from 'react';
 import { Card, Form, Input, Button, Typography, message, Avatar, Tag } from 'antd';
-import { UserOutlined, EditOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { UserOutlined, EnvironmentOutlined, NumberOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const { Title, Text } = Typography;
 
-const BANNED_WORDS = new Set([
-  '시발','씨발','씨팔','쉬발','시팔','ㅅㅂ','ㅆㅂ',
-  '개새끼','개쉐끼','개세끼','개씨발',
-  '병신','ㅂㅅ','보지','자지','창녀','창년','창놈',
-  '새끼','쌍년','쌍놈','지랄','존나','좆','ㅈㄴ',
-  'fuck','shit','bitch','dick','pussy','cock','cunt','nigger','nigga','bastard','whore','slut','ass',
-]);
-
-function containsBannedWord(value: string): boolean {
-  const lower = value.toLowerCase();
-  for (const word of BANNED_WORDS) {
-    if (lower.includes(word)) return true;
-  }
-  return false;
-}
-
-const NICKNAME_REGEX = /^[가-힣a-zA-Z]{1,7}$/;
-
 export default function MyPage() {
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle');
   const [form] = Form.useForm();
 
-  async function checkNickname(value: string) {
-    if (!NICKNAME_REGEX.test(value)) return;
-    if (containsBannedWord(value)) return;
-    if (value === user?.name) { setNicknameStatus('ok'); return; }
-    setNicknameStatus('checking');
-    const { data } = await supabase.from('profiles').select('id').eq('name', value).maybeSingle();
-    setNicknameStatus(data ? 'taken' : 'ok');
-  }
-
-  async function handleSave(values: { nickname: string }) {
+  async function handleSave(values: { realName: string }) {
     setLoading(true);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ name: values.nickname.trim() })
+        .update({ real_name: values.realName.trim() })
         .eq('id', user!.id);
       if (error) throw new Error(error.message);
       await refreshUser();
-      message.success('닉네임이 변경되었습니다.');
+      message.success('이름이 변경되었습니다.');
     } catch (e: unknown) {
       message.error((e as Error).message || '변경에 실패했습니다.');
     } finally {
@@ -60,12 +32,15 @@ export default function MyPage() {
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
       <Title level={4} style={{ marginBottom: 24 }}>마이페이지</Title>
       <Card style={{ borderRadius: 12 }}>
+        {/* 프로필 요약 */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <Avatar size={72} icon={<UserOutlined />} style={{ backgroundColor: '#1677ff', marginBottom: 12 }} />
-          <div>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <Text strong style={{ fontSize: 17 }}>{user?.name}</Text>
-            {user?.realName && (
-              <Text type="secondary" style={{ fontSize: 13, marginLeft: 8 }}>({user.realName})</Text>
+            {user?.userNumber != null && (
+              <Tag icon={<NumberOutlined />} color="default" style={{ fontSize: 12, margin: 0 }}>
+                #{user.userNumber}
+              </Tag>
             )}
           </div>
           <Text type="secondary" style={{ fontSize: 13 }}>{user?.email}</Text>
@@ -82,42 +57,31 @@ export default function MyPage() {
           </div>
         </div>
 
+        {/* 닉네임 (조회 전용) */}
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>닉네임</Text>
+          <div style={{
+            marginTop: 4, padding: '8px 12px', background: '#f5f5f5',
+            borderRadius: 8, fontSize: 14, color: '#333',
+          }}>
+            {user?.name}
+            <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>변경 불가 (유료 서비스)</Text>
+          </div>
+        </div>
+
+        {/* 이름 수정 */}
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ nickname: user?.name }}
+          initialValues={{ realName: user?.realName ?? '' }}
           onFinish={handleSave}
         >
           <Form.Item
-            name="nickname"
-            label="닉네임 변경"
-            validateStatus={nicknameStatus === 'taken' ? 'error' : nicknameStatus === 'ok' ? 'success' : undefined}
-            help={
-              nicknameStatus === 'taken' ? '이미 사용 중인 닉네임입니다.' :
-              nicknameStatus === 'ok' ? '사용 가능한 닉네임입니다.' :
-              '한글 또는 영어만, 7자 이내, 띄어쓰기·특수문자·숫자 불가'
-            }
-            rules={[
-              { required: true, message: '닉네임을 입력하세요' },
-              {
-                validator: (_, value) => {
-                  if (!value) return Promise.resolve();
-                  if (!NICKNAME_REGEX.test(value)) return Promise.reject('한글 또는 영어만, 7자 이내로 입력하세요');
-                  if (containsBannedWord(value)) return Promise.reject('사용할 수 없는 닉네임입니다.');
-                  if (nicknameStatus === 'taken') return Promise.reject('이미 사용 중인 닉네임입니다.');
-                  return Promise.resolve();
-                },
-              },
-            ]}
+            name="realName"
+            label="이름 수정"
+            rules={[{ required: true, message: '이름을 입력하세요' }]}
           >
-            <Input
-              prefix={<EditOutlined />}
-              placeholder="닉네임 (한글/영어, 7자 이내)"
-              size="large"
-              maxLength={7}
-              onBlur={(e) => checkNickname(e.target.value)}
-              onChange={() => setNicknameStatus('idle')}
-            />
+            <Input placeholder="실명 입력" size="large" />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block size="large" loading={loading}>

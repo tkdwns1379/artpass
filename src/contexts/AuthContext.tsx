@@ -11,6 +11,7 @@ interface UserProfile {
   role: string
   isPremium: boolean
   location: string | null
+  userNumber: number | null
 }
 
 interface AuthContextType {
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       isPremium: data?.is_premium ?? false,
       location: data?.location ?? null,
+      userNumber: data?.user_number ?? null,
     })
   }
 

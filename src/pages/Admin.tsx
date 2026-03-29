@@ -31,6 +31,7 @@ interface UserProfile {
   isBanned?: boolean;
   isConfirmed?: boolean;
   createdAt: string;
+  userNumber?: number | null;
 }
 
 interface Conversation {
@@ -133,6 +134,7 @@ export default function Admin() {
           isBanned: p.is_banned,
           isConfirmed: p.is_confirmed,
           createdAt: p.created_at,
+          userNumber: p.user_number ?? null,
         }))
       );
     } catch (e: unknown) {
@@ -456,7 +458,11 @@ export default function Admin() {
   ];
 
   const userColumns = [
-    { title: '이름', dataIndex: 'name', key: 'name', width: 100 },
+    {
+      title: '번호', dataIndex: 'userNumber', key: 'userNumber', width: 70,
+      render: (v: number | null) => v != null ? <span style={{ color: '#888', fontSize: 12 }}>#{v}</span> : '-',
+    },
+    { title: '닉네임', dataIndex: 'name', key: 'name', width: 100 },
     { title: '이메일', dataIndex: 'email', key: 'email', render: (v: string) => <span style={{ fontSize: 12 }}>{v || '-'}</span> },
     {
       title: '권한', dataIndex: 'role', key: 'role', width: 80,
