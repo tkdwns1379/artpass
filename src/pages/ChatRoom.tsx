@@ -154,7 +154,7 @@ export default function ChatRoom() {
       joinedRef.current = false;
       navigate('/rooms');
     }
-  }, [user, roomId, navigate]);
+  }, [user?.id, roomId, navigate]);
 
   const leaveRoom = useCallback(async () => {
     if (!user || !roomId || !joinedRef.current) return;
@@ -162,7 +162,7 @@ export default function ChatRoom() {
     await supabase.functions.invoke('room-action', {
       body: { action: 'leave', room_id: roomId },
     });
-  }, [user, roomId]);
+  }, [user?.id, roomId]);
 
   // 명시적 퇴장 (뒤로가기 버튼)
   const handleExplicitLeave = useCallback(async () => {
@@ -268,7 +268,7 @@ export default function ChatRoom() {
         closeFloating();
       }
     };
-  }, [roomId, user, authLoading]);
+  }, [roomId, user?.id, authLoading]);
 
   useEffect(() => {
     if (kicked) {
