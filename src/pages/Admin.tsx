@@ -113,11 +113,23 @@ export default function Admin() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
+
+      // 이메일 맵 가져오기 (Edge Function)
+      let emailMap: Record<string, string> = {};
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        const res = await supabase.functions.invoke('get-user-emails', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        emailMap = res.data?.emailMap ?? {};
+      } catch {}
+
       setUsers(
         (data ?? []).map(p => ({
           id: p.id,
           name: p.name,
-          email: '',
+          email: emailMap[p.id] ?? '',
           role: p.role,
           isPremium: p.is_premium,
           isBanned: p.is_banned,
@@ -446,8 +458,8 @@ export default function Admin() {
   ];
 
   const userColumns = [
-    { title: '이름', dataIndex: 'name', key: 'name' },
-    { title: 'ID', dataIndex: 'id', key: 'id', render: (v: string) => <span style={{ fontSize: 11, color: '#aaa' }}>{v.slice(0, 8)}...</span> },
+    { title: '이름', dataIndex: 'name', key: 'name', width: 100 },
+    { title: '이메일', dataIndex: 'email', key: 'email', render: (v: string) => <span style={{ fontSize: 12 }}>{v || '-'}</span> },
     {
       title: '권한', dataIndex: 'role', key: 'role', width: 80,
       render: (role: string) => <Tag color={role === 'admin' ? 'red' : 'blue'}>{role === 'admin' ? '관리자' : '회원'}</Tag>,

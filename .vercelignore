@@ -1,0 +1,6 @@
+tools/
+backend/
+pdfs/
+node_modules
+supabase/
+*.pdf
