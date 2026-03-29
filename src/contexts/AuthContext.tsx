@@ -5,17 +5,19 @@ import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface UserProfile {
   id: string
-  name: string
+  name: string       // 닉네임 (표시용)
+  realName: string | null
   email: string
   role: string
   isPremium: boolean
+  location: string | null
 }
 
 interface AuthContextType {
   user: UserProfile | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (nickname: string, realName: string, email: string, password: string, location: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -37,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('프로필 로드 오류:', error)
     }
 
-    // 추방된 회원 자동 로그아웃
     if (data?.is_banned) {
       await supabase.auth.signOut()
       setUser(null)
@@ -45,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // app_metadata.role 또는 profiles.role 우선 적용
     const role = (supabaseUser.app_metadata?.role as string)
       ?? data?.role
       ?? 'user'
@@ -53,9 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({
       id: supabaseUser.id,
       name: data?.name ?? supabaseUser.email!.split('@')[0],
+      realName: data?.real_name ?? null,
       email: supabaseUser.email!,
       role,
       isPremium: data?.is_premium ?? false,
+      location: data?.location ?? null,
     })
   }
 
@@ -80,11 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.user) await loadProfile(data.user)
   }
 
-  async function register(name: string, email: string, password: string) {
+  async function register(nickname: string, realName: string, email: string, password: string, location: string) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { nickname, real_name: realName, location } },
     })
     if (error) throw new Error(error.message)
   }

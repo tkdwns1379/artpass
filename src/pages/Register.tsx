@@ -1,10 +1,31 @@
-import { Form, Input, Button, Card, Typography, Divider, message, Alert, Modal, Checkbox } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, Divider, message, Alert, Modal, Checkbox, Cascader } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
+import { REGIONS } from '@/data/regions';
 
 const { Title, Text } = Typography;
+
+// 비속어/욕설 목록
+const BANNED_WORDS = new Set([
+  '시발','씨발','씨팔','쉬발','시팔','ㅅㅂ','ㅆㅂ',
+  '개새끼','개쉐끼','개세끼','개씨발',
+  '병신','ㅂㅅ','보지','자지','창녀','창년','창놈',
+  '새끼','쌍년','쌍놈','지랄','존나','좆','ㅈㄴ',
+  'fuck','shit','bitch','dick','pussy','cock','cunt','nigger','nigga','bastard','whore','slut','ass',
+]);
+
+function containsBannedWord(value: string): boolean {
+  const lower = value.toLowerCase();
+  for (const word of BANNED_WORDS) {
+    if (lower.includes(word)) return true;
+  }
+  return false;
+}
+
+const NICKNAME_REGEX = /^[가-힣a-zA-Z]{1,7}$/;
 
 const TERMS_CONTENT = `제1조 (목적)
 본 약관은 아트패스(이하 "서비스")가 제공하는 디자인 입시 정보 서비스의 이용 조건 및 절차, 이용자와 서비스의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
@@ -43,11 +64,12 @@ const PRIVACY_CONTENT = `아트패스(이하 "서비스")는 개인정보 보호
 
 1. 수집하는 개인정보 항목
 서비스는 회원가입 시 아래의 개인정보를 수집합니다.
-- 필수 항목: 이름(닉네임), 이메일 주소, 비밀번호(암호화 저장)
+- 필수 항목: 이름(실명), 닉네임, 이메일 주소, 비밀번호(암호화 저장), 거주지(시/구 단위)
 
 2. 개인정보의 수집 및 이용 목적
 - 회원 가입 및 본인 확인
-- 서비스 이용에 따른 이용자 식별
+- 서비스 이용에 따른 이용자 식별 (닉네임 표시)
+- 지역 기반 입시 정보 제공
 - 서비스 내 소통 기능(채팅) 제공
 - 불량 이용자 제재 및 서비스 운영
 
@@ -90,11 +112,28 @@ export default function Register() {
   const [form] = Form.useForm();
   const [termsModal, setTermsModal] = useState(false);
   const [privacyModal, setPrivacyModal] = useState(false);
+  const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle');
 
-  async function handleSubmit(values: { name: string; email: string; password: string; agree: boolean }) {
+  async function checkNickname(value: string) {
+    if (!NICKNAME_REGEX.test(value)) return;
+    if (containsBannedWord(value)) return;
+    setNicknameStatus('checking');
+    const { data } = await supabase.from('profiles').select('id').eq('name', value).maybeSingle();
+    setNicknameStatus(data ? 'taken' : 'ok');
+  }
+
+  async function handleSubmit(values: {
+    realName: string;
+    nickname: string;
+    email: string;
+    password: string;
+    location: string[];
+    agree: boolean;
+  }) {
+    const location = values.location?.join(' ') ?? '';
     setLoading(true);
     try {
-      await register(values.name, values.email, values.password);
+      await register(values.nickname, values.realName, values.email, values.password, location);
       setRegisteredEmail(values.email);
       setRegistered(true);
       message.success('회원가입이 완료되었습니다! 이메일을 확인해주세요.');
@@ -121,26 +160,12 @@ export default function Register() {
             <strong>{registeredEmail}</strong> 으로 인증 링크를 보냈습니다.<br />
             받은 편지함에서 인증 링크를 클릭하면 가입이 완료됩니다.
           </Text>
-          <Alert
-            type="info"
-            showIcon
-            message="이메일이 오지 않았다면?"
-            description="스팸 편지함을 확인하거나, 잠시 후 다시 시도해주세요."
-            style={{ marginBottom: 16, textAlign: 'left' }}
-          />
-          <Alert
-            type="warning"
-            showIcon
-            message="이메일을 잘못 입력했나요?"
-            description="아래 버튼을 눌러 올바른 이메일로 다시 가입해주세요."
-            style={{ marginBottom: 16, textAlign: 'left' }}
-          />
+          <Alert type="info" showIcon message="이메일이 오지 않았다면?" description="스팸 편지함을 확인하거나, 잠시 후 다시 시도해주세요." style={{ marginBottom: 16, textAlign: 'left' }} />
+          <Alert type="warning" showIcon message="이메일을 잘못 입력했나요?" description="아래 버튼을 눌러 올바른 이메일로 다시 가입해주세요." style={{ marginBottom: 16, textAlign: 'left' }} />
           <Button block style={{ marginBottom: 8 }} onClick={() => { setRegistered(false); setRegisteredEmail(''); form.resetFields(); }}>
             이메일 다시 입력하기
           </Button>
-          <Button type="primary" block onClick={() => navigate('/login')}>
-            로그인 페이지로 이동
-          </Button>
+          <Button type="primary" block onClick={() => navigate('/login')}>로그인 페이지로 이동</Button>
         </Card>
       </div>
     );
@@ -155,16 +180,70 @@ export default function Register() {
         </div>
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="name" rules={[{ required: true, message: '이름을 입력하세요' }]}>
-            <Input prefix={<UserOutlined />} placeholder="이름" size="large" />
+          <Form.Item
+            name="realName"
+            rules={[{ required: true, message: '이름을 입력하세요' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="이름 (실명)" size="large" />
           </Form.Item>
 
-          <Form.Item name="email" rules={[{ required: true, type: 'email', message: '올바른 이메일을 입력하세요' }]}>
+          <Form.Item
+            name="nickname"
+            validateStatus={nicknameStatus === 'taken' ? 'error' : nicknameStatus === 'ok' ? 'success' : undefined}
+            help={
+              nicknameStatus === 'taken' ? '이미 사용 중인 닉네임입니다.' :
+              nicknameStatus === 'ok' ? '사용 가능한 닉네임입니다.' :
+              '한글 또는 영어만, 7자 이내, 띄어쓰기·특수문자·숫자 불가'
+            }
+            rules={[
+              { required: true, message: '닉네임을 입력하세요' },
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve();
+                  if (!NICKNAME_REGEX.test(value)) return Promise.reject('한글 또는 영어만, 7자 이내로 입력하세요 (띄어쓰기·숫자·특수문자 불가)');
+                  if (containsBannedWord(value)) return Promise.reject('사용할 수 없는 닉네임입니다.');
+                  if (nicknameStatus === 'taken') return Promise.reject('이미 사용 중인 닉네임입니다.');
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="닉네임 (한글/영어, 7자 이내)"
+              size="large"
+              maxLength={7}
+              onBlur={(e) => checkNickname(e.target.value)}
+              onChange={() => setNicknameStatus('idle')}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="email"
+            rules={[{ required: true, type: 'email', message: '올바른 이메일을 입력하세요' }]}
+          >
             <Input prefix={<MailOutlined />} placeholder="이메일" size="large" />
           </Form.Item>
 
-          <Form.Item name="password" rules={[{ required: true, min: 6, message: '6자 이상 입력하세요' }]}>
+          <Form.Item
+            name="password"
+            rules={[{ required: true, min: 6, message: '6자 이상 입력하세요' }]}
+          >
             <Input.Password prefix={<LockOutlined />} placeholder="비밀번호 (6자 이상)" size="large" />
+          </Form.Item>
+
+          <Form.Item
+            name="location"
+            rules={[{ required: true, message: '거주 지역을 선택하세요' }]}
+          >
+            <Cascader
+              options={REGIONS}
+              placeholder="거주 지역 선택"
+              size="large"
+              style={{ width: '100%' }}
+              suffixIcon={<EnvironmentOutlined />}
+              displayRender={(labels) => labels.join(' ')}
+            />
           </Form.Item>
 
           <Form.Item
@@ -195,28 +274,12 @@ export default function Register() {
         <Button block onClick={() => navigate('/login')}>로그인</Button>
       </Card>
 
-      <Modal
-        title="이용약관"
-        open={termsModal}
-        onCancel={() => setTermsModal(false)}
-        footer={<Button type="primary" onClick={() => setTermsModal(false)}>확인</Button>}
-        width={600}
-      >
-        <div style={{ maxHeight: 400, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7, color: '#444' }}>
-          {TERMS_CONTENT}
-        </div>
+      <Modal title="이용약관" open={termsModal} onCancel={() => setTermsModal(false)} footer={<Button type="primary" onClick={() => setTermsModal(false)}>확인</Button>} width={600}>
+        <div style={{ maxHeight: 400, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7, color: '#444' }}>{TERMS_CONTENT}</div>
       </Modal>
 
-      <Modal
-        title="개인정보 처리방침"
-        open={privacyModal}
-        onCancel={() => setPrivacyModal(false)}
-        footer={<Button type="primary" onClick={() => setPrivacyModal(false)}>확인</Button>}
-        width={600}
-      >
-        <div style={{ maxHeight: 400, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7, color: '#444' }}>
-          {PRIVACY_CONTENT}
-        </div>
+      <Modal title="개인정보 처리방침" open={privacyModal} onCancel={() => setPrivacyModal(false)} footer={<Button type="primary" onClick={() => setPrivacyModal(false)}>확인</Button>} width={600}>
+        <div style={{ maxHeight: 400, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7, color: '#444' }}>{PRIVACY_CONTENT}</div>
       </Modal>
     </div>
   );
