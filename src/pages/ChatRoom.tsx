@@ -278,14 +278,18 @@ export default function ChatRoom() {
       )
       .subscribe();
 
-    // pagehide: persisted=false → 탭/앱 완전 종료 → 방 나가기
-    //           persisted=true  → 백그라운드/캐시  → 유지
-    // keepalive:true 로 모바일에서 페이지 언로드 시에도 요청 완료 보장
+    // 새로고침 감지: beforeunload → pagehide 순서로 발생
+    // iOS에서 탭 닫기는 beforeunload 없이 pagehide만 발생
+    let isRefreshing = false;
+    const handleBeforeUnload = () => { isRefreshing = true; };
+
     const handlePageHide = (e: PageTransitionEvent) => {
-      if (!e.persisted && joinedRef.current && sessionTokenRef.current && roomId) {
+      if (e.persisted) return; // 백그라운드/캐시 → 유지
+      if (isRefreshing) return; // 새로고침 → 유지
+      // 탭/앱 완전 종료 → 퇴장
+      if (joinedRef.current && sessionTokenRef.current && roomId) {
         joinedRef.current = false;
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/room-action`;
-        fetch(url, {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/room-action`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -297,10 +301,13 @@ export default function ChatRoom() {
         });
       }
     };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
       if (minimizingRef.current) {
         // 미니채팅으로 전환 → leaveRoom 호출 안 함
