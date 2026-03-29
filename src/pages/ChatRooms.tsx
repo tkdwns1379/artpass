@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Slider, Typography,
-  Empty, Spin, message, Badge,
+  Empty, Spin, message, Badge, Tooltip,
 } from 'antd';
-import { PlusOutlined, TeamOutlined, LoginOutlined, LockOutlined } from '@ant-design/icons';
+import { PlusOutlined, TeamOutlined, LoginOutlined, LockOutlined, StarFilled } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -17,7 +17,9 @@ interface Room {
   tags: string[];
   max_members: number;
   created_at: string;
-  member_count: number;
+  member_count: number;      // 전체 인원 (관리자 포함)
+  non_admin_count: number;   // 일반 유저만
+  has_admin: boolean;        // 관리자 참여 or 방장이 관리자
   creator_name?: string;
 }
 
@@ -41,34 +43,59 @@ export default function ChatRooms() {
   async function fetchRooms() {
     const { data, error } = await supabase
       .from('rooms')
-      .select('*, profiles!rooms_created_by_fkey(name)')
+      .select('*, profiles!rooms_created_by_fkey(name, role)')
       .order('created_at', { ascending: false });
 
     if (error) { console.error(error); return; }
 
-    // 각 방의 현재 인원 수 가져오기
     const roomIds = (data ?? []).map((r) => r.id);
+    if (roomIds.length === 0) { setRooms([]); setLoading(false); return; }
+
+    // 멤버 목록 가져오기
     const { data: members } = await supabase
       .from('room_members')
-      .select('room_id')
+      .select('room_id, user_id')
       .in('room_id', roomIds);
 
+    // 멤버 유저들의 role 가져오기
+    const userIds = [...new Set((members ?? []).map((m) => m.user_id))];
+    const { data: profiles } = userIds.length > 0
+      ? await supabase.from('profiles').select('id, role').in('id', userIds)
+      : { data: [] };
+
+    const roleMap: Record<string, string> = {};
+    (profiles ?? []).forEach((p) => { roleMap[p.id] = p.role; });
+
     const countMap: Record<string, number> = {};
+    const nonAdminCountMap: Record<string, number> = {};
+    const adminRoomSet = new Set<string>();
+
     (members ?? []).forEach((m) => {
       countMap[m.room_id] = (countMap[m.room_id] ?? 0) + 1;
+      if (roleMap[m.user_id] === 'admin') {
+        adminRoomSet.add(m.room_id);
+      } else {
+        nonAdminCountMap[m.room_id] = (nonAdminCountMap[m.room_id] ?? 0) + 1;
+      }
     });
 
     setRooms(
-      (data ?? []).map((r) => ({
-        id: r.id,
-        name: r.name,
-        created_by: r.created_by,
-        tags: r.tags ?? [],
-        max_members: r.max_members,
-        created_at: r.created_at,
-        member_count: countMap[r.id] ?? 0,
-        creator_name: (r.profiles as { name: string } | null)?.name,
-      }))
+      (data ?? []).map((r) => {
+        const creatorProfile = r.profiles as { name: string; role: string } | null;
+        const creatorIsAdmin = creatorProfile?.role === 'admin';
+        return {
+          id: r.id,
+          name: r.name,
+          created_by: r.created_by,
+          tags: r.tags ?? [],
+          max_members: r.max_members,
+          created_at: r.created_at,
+          member_count: countMap[r.id] ?? 0,
+          non_admin_count: nonAdminCountMap[r.id] ?? 0,
+          has_admin: adminRoomSet.has(r.id) || creatorIsAdmin,
+          creator_name: creatorProfile?.name,
+        };
+      })
     );
     setLoading(false);
   }
@@ -76,7 +103,6 @@ export default function ChatRooms() {
   useEffect(() => {
     fetchRooms();
 
-    // room_members 변경 시 인원 수 실시간 업데이트
     const sub = supabase
       .channel('rooms-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members' }, fetchRooms)
@@ -112,6 +138,8 @@ export default function ChatRooms() {
     if (!user) { message.warning('로그인이 필요합니다.'); return; }
     navigate(`/rooms/${room.id}`);
   }
+
+  const isAdmin = user?.role === 'admin';
 
   const filtered = filterTags.length === 0
     ? rooms
@@ -161,26 +189,36 @@ export default function ChatRooms() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {filtered.map((room) => {
-            const isFull = room.member_count >= room.max_members;
+            // 관리자는 항상 입장 가능, 일반 유저는 non_admin_count 기준
+            const isFull = isAdmin ? false : room.non_admin_count >= room.max_members;
+            const displayCount = room.non_admin_count;
+
             return (
               <Card
                 key={room.id}
                 hoverable={!isFull}
                 style={{
                   opacity: isFull ? 0.65 : 1,
-                  border: '1px solid #f0f0f0',
+                  border: room.has_admin ? '1.5px solid #faad14' : '1px solid #f0f0f0',
                   borderRadius: 12,
                 }}
                 bodyStyle={{ padding: 20 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* 방 이름 + 인원 */}
+                  {/* 방 이름 + 별 + 인원 */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Text strong style={{ fontSize: 15, flex: 1, marginRight: 8 }}>{room.name}</Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, marginRight: 8, minWidth: 0 }}>
+                      {room.has_admin && (
+                        <Tooltip title="관리자가 있는 방">
+                          <StarFilled style={{ color: '#faad14', fontSize: 14, flexShrink: 0 }} />
+                        </Tooltip>
+                      )}
+                      <Text strong style={{ fontSize: 15 }} ellipsis={{ tooltip: room.name }}>{room.name}</Text>
+                    </div>
                     <Badge
-                      count={`${room.member_count}/${room.max_members}`}
+                      count={`${displayCount}/${room.max_members}`}
                       style={{
-                        backgroundColor: isFull ? '#ff4d4f' : room.member_count > 0 ? '#52c41a' : '#d9d9d9',
+                        backgroundColor: room.non_admin_count >= room.max_members ? '#ff4d4f' : displayCount > 0 ? '#52c41a' : '#d9d9d9',
                         color: '#fff',
                         fontWeight: 600,
                         fontSize: 12,

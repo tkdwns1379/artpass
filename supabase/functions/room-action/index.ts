@@ -8,9 +8,9 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function json(data: unknown, status = 200) {
+function json(data: unknown) {
   return new Response(JSON.stringify(data), {
-    status,
+    status: 200,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
 }
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
+    if (!authHeader) return json({ ok: false, error: 'Unauthorized' })
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const { data: { user: caller }, error: authErr } = await admin.auth.getUser(
       authHeader.replace('Bearer ', '')
     )
-    if (authErr || !caller) return json({ error: 'Unauthorized' }, 401)
+    if (authErr || !caller) return json({ ok: false, error: 'Unauthorized' })
 
     // 호출자 프로필 (role 확인)
     const { data: callerProfile } = await admin
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       .eq('id', caller.id)
       .single()
 
-    if (callerProfile?.is_banned) return json({ error: 'Banned' }, 403)
+    if (callerProfile?.is_banned) return json({ ok: false, error: '이용이 제한된 계정입니다.' })
 
     const callerIsAdmin = callerProfile?.role === 'admin'
     const callerName = callerProfile?.name ?? '알 수 없음'
@@ -55,15 +55,22 @@ Deno.serve(async (req) => {
         .eq('id', room_id)
         .single()
 
-      if (!room) return json({ error: '방이 존재하지 않습니다.' }, 404)
+      if (!room) return json({ ok: false, error: '방이 존재하지 않습니다.' })
 
-      const { count } = await admin
-        .from('room_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', room_id)
+      // 관리자가 아닌 경우에만 인원 제한 체크 (일반 유저 수만 카운트)
+      if (!callerIsAdmin) {
+        const { data: memberList } = await admin
+          .from('room_members')
+          .select('user_id, profiles!inner(role)')
+          .eq('room_id', room_id)
 
-      if ((count ?? 0) >= room.max_members) {
-        return json({ error: '방이 가득 찼습니다.' }, 400)
+        const nonAdminCount = (memberList ?? []).filter(
+          (m: { profiles: { role: string } }) => m.profiles?.role !== 'admin'
+        ).length
+
+        if (nonAdminCount >= room.max_members) {
+          return json({ ok: false, error: '방이 가득 찼습니다.' })
+        }
       }
 
       // 이미 입장 중이면 스킵
@@ -95,6 +102,17 @@ Deno.serve(async (req) => {
         .eq('room_id', room_id)
         .eq('user_id', caller.id)
 
+      // 남은 인원 확인 → 0명이면 방 삭제
+      const { count: remaining } = await admin
+        .from('room_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('room_id', room_id)
+
+      if ((remaining ?? 0) === 0) {
+        await admin.from('rooms').delete().eq('id', room_id)
+        return json({ ok: true, deleted: true })
+      }
+
       await admin.from('room_messages').insert({
         room_id,
         user_id: null,
@@ -107,7 +125,7 @@ Deno.serve(async (req) => {
 
     // ──────────────── KICK ────────────────────────────────────
     if (action === 'kick') {
-      if (!target_user_id) return json({ error: 'target_user_id 필요' }, 400)
+      if (!target_user_id) return json({ ok: false, error: 'target_user_id 필요' })
 
       // 대상 프로필
       const { data: targetProfile } = await admin
@@ -120,7 +138,7 @@ Deno.serve(async (req) => {
       const targetName = targetProfile?.name ?? '알 수 없음'
 
       // 관리자는 추방 불가
-      if (targetIsAdmin) return json({ error: '관리자는 추방할 수 없습니다.' }, 403)
+      if (targetIsAdmin) return json({ ok: false, error: '관리자는 추방할 수 없습니다.' })
 
       // 권한 확인: 방장 또는 관리자만 추방 가능
       const { data: room } = await admin
@@ -132,7 +150,7 @@ Deno.serve(async (req) => {
       const callerIsOwner = room?.created_by === caller.id
 
       if (!callerIsAdmin && !callerIsOwner) {
-        return json({ error: '추방 권한이 없습니다.' }, 403)
+        return json({ ok: false, error: '추방 권한이 없습니다.' })
       }
 
       await admin
@@ -151,8 +169,8 @@ Deno.serve(async (req) => {
       return json({ ok: true, kicked_user_id: target_user_id })
     }
 
-    return json({ error: '알 수 없는 action' }, 400)
+    return json({ ok: false, error: '알 수 없는 action' })
   } catch (e) {
-    return json({ error: (e as Error).message }, 500)
+    return json({ ok: false, error: (e as Error).message })
   }
 })
