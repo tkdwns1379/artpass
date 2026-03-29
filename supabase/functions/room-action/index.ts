@@ -57,16 +57,38 @@ Deno.serve(async (req) => {
       if (!callerIsAdmin) {
         const { data: memberList } = await admin
           .from('room_members')
-          .select('user_id, profiles!inner(role)')
+          .select('user_id')
           .eq('room_id', room_id)
 
-        const nonAdminCount = (memberList ?? []).filter(
-          (m: { profiles: { role: string } }) => m.profiles?.role !== 'admin'
-        ).length
+        const memberIds = (memberList ?? []).map((m: { user_id: string }) => m.user_id)
+        let nonAdminCount = memberIds.length
+        if (memberIds.length > 0) {
+          const { data: memberProfiles } = await admin
+            .from('profiles')
+            .select('id, role')
+            .in('id', memberIds)
+          const adminIds = new Set((memberProfiles ?? []).filter((p: { role: string }) => p.role === 'admin').map((p: { id: string }) => p.id))
+          nonAdminCount = memberIds.filter((id: string) => !adminIds.has(id)).length
+        }
 
         if (nonAdminCount >= room.max_members) {
           return json({ ok: false, error: '방이 가득 찼습니다.' })
         }
+      }
+
+      // 추방 밴 확인 (서버 시간 기준으로 아직 만료 안 된 것만)
+      const now = new Date().toISOString()
+      const { data: ban } = await admin
+        .from('room_bans')
+        .select('banned_until')
+        .eq('room_id', room_id)
+        .eq('user_id', caller.id)
+        .gt('banned_until', now)
+        .maybeSingle()
+
+      if (ban) {
+        const remaining = Math.ceil((new Date(ban.banned_until).getTime() - Date.now()) / 60000)
+        return json({ ok: false, error: `추방된 방입니다. ${remaining}분 후 입장 가능합니다.` })
       }
 
       const { data: existing } = await admin
@@ -118,6 +140,7 @@ Deno.serve(async (req) => {
         .eq('room_id', room_id)
 
       if ((remaining ?? 0) === 0) {
+        await admin.from('room_bans').delete().eq('room_id', room_id)
         await admin.from('rooms').delete().eq('id', room_id)
         return json({ ok: true, deleted: true })
       }
@@ -200,10 +223,17 @@ Deno.serve(async (req) => {
         .from('room_members').delete()
         .eq('room_id', room_id).eq('user_id', target_user_id)
 
+      // 7분 입장 금지
+      const bannedUntil = new Date(Date.now() + 7 * 60 * 1000).toISOString()
+      await admin.from('room_bans').upsert(
+        { room_id, user_id: target_user_id, banned_until: bannedUntil },
+        { onConflict: 'room_id,user_id' }
+      )
+
       await admin.from('room_messages').insert({
         room_id,
         user_id: null,
-        content: `${targetProfile?.name ?? '멤버'}님이 추방되었습니다.`,
+        content: `${targetProfile?.name ?? '멤버'}님이 추방되었습니다. (7분간 입장 제한)`,
         type: 'system',
       })
 
