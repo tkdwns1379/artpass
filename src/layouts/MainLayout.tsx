@@ -100,7 +100,7 @@ export default function MainLayout() {
           <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
             {screens.sm ? '소통 라운지' : '라운지'}
           </Button>
-          {user && user.role !== 'admin' && (
+          {user && (
             <>
               <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 8px' }} />
               <Button type="text" icon={<TeamOutlined />} onClick={() => setFriendDrawerOpen(true)} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
