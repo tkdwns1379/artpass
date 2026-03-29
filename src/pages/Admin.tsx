@@ -25,6 +25,7 @@ interface University {
 interface UserProfile {
   id: string;
   name: string;
+  realName?: string | null;
   email: string;
   role: string;
   isPremium?: boolean;
@@ -77,6 +78,11 @@ export default function Admin() {
   const [editing, setEditing] = useState<University | null>(null);
   const [form] = Form.useForm();
 
+  // 닉네임 수정 모달
+  const [nicknameModalUser, setNicknameModalUser] = useState<UserProfile | null>(null);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+
   // 채팅 관련
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -128,6 +134,7 @@ export default function Admin() {
         (data ?? []).map(p => ({
           id: p.id,
           name: p.name,
+          realName: p.real_name ?? null,
           email: emailMap[p.id] ?? '',
           role: p.role,
           isPremium: p.is_premium,
@@ -364,6 +371,25 @@ export default function Admin() {
   // =============================================
   // 회원 관리
   // =============================================
+  async function handleSaveNickname() {
+    if (!nicknameModalUser || !nicknameInput.trim()) return;
+    setNicknameSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ name: nicknameInput.trim() })
+        .eq('id', nicknameModalUser.id);
+      if (error) throw new Error(error.message);
+      message.success('닉네임이 변경되었습니다.');
+      setNicknameModalUser(null);
+      fetchUsers();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '변경에 실패했습니다.');
+    } finally {
+      setNicknameSaving(false);
+    }
+  }
+
   async function handleBanUser(id: string) {
     try {
       const { error } = await supabase
@@ -462,6 +488,9 @@ export default function Admin() {
       title: '번호', dataIndex: 'userNumber', key: 'userNumber', width: 70,
       render: (v: number | null) => v != null ? <span style={{ color: '#888', fontSize: 12 }}>#{v}</span> : '-',
     },
+    { title: '이름', dataIndex: 'realName', key: 'realName', width: 90,
+      render: (v: string | null) => <span style={{ fontSize: 12 }}>{v || '-'}</span>,
+    },
     { title: '닉네임', dataIndex: 'name', key: 'name', width: 100 },
     { title: '이메일', dataIndex: 'email', key: 'email', render: (v: string) => <span style={{ fontSize: 12 }}>{v || '-'}</span> },
     {
@@ -489,9 +518,15 @@ export default function Admin() {
       },
     },
     {
-      title: '관리', key: 'action', width: 200,
+      title: '관리', key: 'action', width: 240,
       render: (_: unknown, u: UserProfile) => u.role === 'admin' ? null : (
         <Space>
+          <Button
+            size="small"
+            onClick={() => { setNicknameModalUser(u); setNicknameInput(u.name); }}
+          >
+            닉네임
+          </Button>
           {!u.isBanned && (
             <Button
               size="small"
@@ -800,6 +835,25 @@ export default function Admin() {
             </div>
           ))}
         </div>
+      </Modal>
+
+      {/* 닉네임 수정 모달 */}
+      <Modal
+        title={`닉네임 변경 — ${nicknameModalUser?.name ?? ''}`}
+        open={!!nicknameModalUser}
+        onOk={handleSaveNickname}
+        onCancel={() => setNicknameModalUser(null)}
+        okText="저장" cancelText="취소"
+        confirmLoading={nicknameSaving}
+      >
+        <Input
+          value={nicknameInput}
+          onChange={e => setNicknameInput(e.target.value)}
+          placeholder="새 닉네임 입력"
+          maxLength={7}
+          style={{ marginTop: 12 }}
+        />
+        <div style={{ fontSize: 12, color: '#aaa', marginTop: 6 }}>한글 또는 영어만, 7자 이내</div>
       </Modal>
     </div>
   );
