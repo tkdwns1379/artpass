@@ -80,10 +80,11 @@ export default function ChatRoom() {
   }
 
   async function fetchMembers(map?: Record<string, { name: string; role: string }>) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('room_members')
       .select('user_id')
       .eq('room_id', roomId!);
+    console.log('[fetchMembers] data:', JSON.stringify(data), 'error:', error?.message);
 
     const ids = (data ?? []).map((m) => m.user_id);
     const profiles = map ?? profileMap;
@@ -144,9 +145,11 @@ export default function ChatRoom() {
     if (!user || !roomId || joinedRef.current) return;
     joinedRef.current = true;
 
+    console.log('[joinRoom] calling edge function...');
     const res = await supabase.functions.invoke('room-action', {
       body: { action: 'join', room_id: roomId },
     });
+    console.log('[joinRoom] result:', JSON.stringify(res.data), 'error:', res.error?.message);
 
     if (res.error || res.data?.ok === false) {
       const errMsg = res.data?.error || res.error?.message || '입장에 실패했습니다.';
@@ -186,15 +189,22 @@ export default function ChatRoom() {
 
     (async () => {
       try {
+        console.log('[ChatRoom] init start, user:', user.id, 'room:', roomId);
         await fetchRoom();
+        console.log('[ChatRoom] fetchRoom done');
         const map = await fetchProfiles([user.id]);
+        console.log('[ChatRoom] fetchProfiles done', map);
         await fetchMessages(map);
+        console.log('[ChatRoom] fetchMessages done');
         await joinRoom();
+        console.log('[ChatRoom] joinRoom done, joinedRef:', joinedRef.current);
         await fetchMembers(map);
+        console.log('[ChatRoom] fetchMembers done');
       } catch (err) {
-        console.error('ChatRoom init error:', err);
+        console.error('[ChatRoom] init error:', err);
       } finally {
         setLoading(false);
+        console.log('[ChatRoom] loading done');
       }
     })();
 
