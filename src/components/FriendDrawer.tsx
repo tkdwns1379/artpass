@@ -160,6 +160,15 @@ export default function FriendDrawer({ open, onClose }: FriendDrawerProps) {
           ) {
             setDms(prev => {
               if (prev.some(d => d.id === m.id)) return prev;
+              // temp 메시지 교체 (내가 보낸 경우)
+              const tempIdx = m.sender_id === user.id
+                ? prev.findIndex(d => d.id.startsWith('temp-') && d.content === m.content)
+                : -1;
+              if (tempIdx !== -1) {
+                const next = [...prev];
+                next[tempIdx] = { id: m.id, senderId: m.sender_id, content: m.content, createdAt: m.created_at, readByReceiver: m.read_by_receiver };
+                return next;
+              }
               return [...prev, { id: m.id, senderId: m.sender_id, content: m.content, createdAt: m.created_at, readByReceiver: m.read_by_receiver }];
             });
           }
@@ -178,16 +187,27 @@ export default function FriendDrawer({ open, onClose }: FriendDrawerProps) {
     setSending(true);
     const content = input.trim();
     setInput('');
+    const tempId = `temp-${Date.now()}`;
+    // 낙관적 업데이트: 바로 화면에 표시
+    setDms(prev => [...prev, {
+      id: tempId,
+      senderId: user.id,
+      content,
+      createdAt: new Date().toISOString(),
+      readByReceiver: false,
+    }]);
     try {
-      await supabase.from('direct_messages').insert({
+      const { error } = await supabase.from('direct_messages').insert({
         sender_id: user.id,
         receiver_id: chatFriend.userId,
         content,
         read_by_receiver: false,
       });
-    } catch {
-      antMessage.error('전송 실패');
+      if (error) throw new Error(error.message);
+    } catch (e) {
+      antMessage.error('전송 실패: ' + (e as Error).message);
       setInput(content);
+      setDms(prev => prev.filter(d => d.id !== tempId));
     } finally {
       setSending(false);
     }
