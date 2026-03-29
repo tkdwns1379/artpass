@@ -51,6 +51,7 @@ export default function ChatRoom() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [kicked, setKicked] = useState(false);
+  const [kickedUntil, setKickedUntil] = useState<Date | null>(null);
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.sm;
@@ -272,9 +273,12 @@ export default function ChatRoom() {
         { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` },
         (payload) => {
           if (
-            payload.eventType === 'DELETE' &&
-            (payload.old as { user_id?: string })?.user_id === user?.id
+            payload.eventType === 'UPDATE' &&
+            (payload.new as { user_id?: string; is_kicked?: boolean })?.user_id === user?.id &&
+            (payload.new as { is_kicked?: boolean })?.is_kicked === true
           ) {
+            const until = new Date(Date.now() + 7 * 60 * 1000);
+            setKickedUntil(until);
             setKicked(true);
           }
           // 방장 변경 감지를 위해 room 정보도 갱신
@@ -331,13 +335,21 @@ export default function ChatRoom() {
   }, [roomId, user?.id, authLoading]);
 
   useEffect(() => {
-    if (kicked) {
-      antMessage.error('방에서 추방되었습니다.', 3);
-      joinedRef.current = false;
-      closeFloating();
-      navigate('/rooms');
+    if (kicked && kickedUntil) {
+      antMessage.warning('추방되었습니다. 7분간 채팅이 제한됩니다. 방을 나가면 7분간 재입장이 불가합니다.', 6);
+      const ms = kickedUntil.getTime() - Date.now();
+      if (ms > 0) {
+        const timer = setTimeout(() => {
+          setKicked(false);
+          setKickedUntil(null);
+        }, ms);
+        return () => clearTimeout(timer);
+      } else {
+        setKicked(false);
+        setKickedUntil(null);
+      }
     }
-  }, [kicked, navigate]);
+  }, [kicked, kickedUntil]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -545,21 +557,29 @@ export default function ChatRoom() {
             <div ref={bottomRef} />
           </div>
 
-          <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, background: '#fff' }}>
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onPressEnter={handleSend}
-              placeholder="메시지를 입력하세요..."
-              style={{ borderRadius: 20 }}
-              maxLength={500}
-            />
-            <Button
-              type="primary" shape="circle" icon={<SendOutlined />}
-              onClick={handleSend} loading={sending}
-              disabled={!input.trim()}
-            />
-          </div>
+          {kicked ? (
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #f0f0f0', background: '#fff7e6', textAlign: 'center' }}>
+              <Text type="warning" style={{ fontSize: 13 }}>
+                ⛔ 추방되었습니다. 채팅이 제한됩니다. 방을 나가면 7분간 재입장이 불가합니다.
+              </Text>
+            </div>
+          ) : (
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, background: '#fff' }}>
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onPressEnter={handleSend}
+                placeholder="메시지를 입력하세요..."
+                style={{ borderRadius: 20 }}
+                maxLength={500}
+              />
+              <Button
+                type="primary" shape="circle" icon={<SendOutlined />}
+                onClick={handleSend} loading={sending}
+                disabled={!input.trim()}
+              />
+            </div>
+          )}
         </div>
 
         {/* 멤버 사이드바 — 데스크톱만 */}

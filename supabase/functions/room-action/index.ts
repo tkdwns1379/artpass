@@ -219,11 +219,14 @@ Deno.serve(async (req) => {
       const callerIsOwner = roomData?.created_by === caller.id
       if (!callerIsAdmin && !callerIsOwner) return json({ ok: false, error: '추방 권한이 없습니다.' })
 
+      // 삭제하지 않고 is_kicked 플래그만 설정 (방에 남아있되 채팅 불가)
       await admin
-        .from('room_members').delete()
-        .eq('room_id', room_id).eq('user_id', target_user_id)
+        .from('room_members')
+        .update({ is_kicked: true })
+        .eq('room_id', room_id)
+        .eq('user_id', target_user_id)
 
-      // 7분 입장 금지
+      // 7분 채팅 제한 + 나갔다 재입장 금지
       const bannedUntil = new Date(Date.now() + 7 * 60 * 1000).toISOString()
       await admin.from('room_bans').upsert(
         { room_id, user_id: target_user_id, banned_until: bannedUntil },
@@ -233,7 +236,7 @@ Deno.serve(async (req) => {
       await admin.from('room_messages').insert({
         room_id,
         user_id: null,
-        content: `${targetProfile?.name ?? '멤버'}님이 추방되었습니다. (7분간 입장 제한)`,
+        content: `${targetProfile?.name ?? '멤버'}님이 추방되었습니다. (7분간 채팅 제한, 방 나가면 재입장 불가)`,
         type: 'system',
       })
 
