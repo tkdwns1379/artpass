@@ -191,7 +191,7 @@ export default function ChatRooms() {
           {filtered.map((room) => {
             // 관리자는 항상 입장 가능, 일반 유저는 non_admin_count 기준
             const isFull = isAdmin ? false : room.non_admin_count >= room.max_members;
-            const displayCount = room.non_admin_count;
+            const displayCount = room.member_count;
 
             return (
               <Card

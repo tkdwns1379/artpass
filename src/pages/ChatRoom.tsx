@@ -314,7 +314,7 @@ export default function ChatRoom() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 130px)', maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
       {/* 상단 헤더 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,

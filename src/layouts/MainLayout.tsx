@@ -13,6 +13,7 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const isChatRoom = /^\/rooms\/.+/.test(location.pathname);
   const [pwModalOpen, setPwModalOpen] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
   const [pwForm] = Form.useForm();
@@ -102,13 +103,19 @@ export default function MainLayout() {
         </Space>
       </Header>
 
-      <Content style={isHome ? { padding: 0 } : { padding: '32px 40px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      <Content style={
+        isHome || isChatRoom
+          ? { padding: 0, display: 'flex', flexDirection: 'column' }
+          : { padding: '32px 40px', maxWidth: 1200, margin: '0 auto', width: '100%' }
+      }>
         <Outlet />
       </Content>
 
-      <Footer style={{ textAlign: 'center', color: '#aaa', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
-        아트패스 © 2025 — 비공식 입시 정보 사이트
-      </Footer>
+      {!isChatRoom && (
+        <Footer style={{ textAlign: 'center', color: '#aaa', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
+          아트패스 © 2025 — 비공식 입시 정보 사이트
+        </Footer>
+      )}
 
       <ChatWidget />
 
