@@ -22,6 +22,68 @@ export default function ChatWidget() {
   const [unread, setUnread] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // 드래그 상태
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const posRef = useRef({ x: 0, y: 0 });
+
+  // 초기 위치: 우측 하단
+  useEffect(() => {
+    const x = window.innerWidth - 76;
+    const y = window.innerHeight - 76;
+    setPos({ x, y });
+    posRef.current = { x, y };
+  }, []);
+
+  // 마우스 드래그
+  function handleMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    isDragging.current = true;
+    dragOffset.current = { x: e.clientX - posRef.current.x, y: e.clientY - posRef.current.y };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!isDragging.current) return;
+    const x = Math.max(0, Math.min(window.innerWidth - 52, e.clientX - dragOffset.current.x));
+    const y = Math.max(0, Math.min(window.innerHeight - 52, e.clientY - dragOffset.current.y));
+    posRef.current = { x, y };
+    setPos({ x, y });
+  }
+
+  function onMouseUp() {
+    isDragging.current = false;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  }
+
+  // 터치 드래그 (모바일)
+  function handleTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    isDragging.current = true;
+    dragOffset.current = { x: touch.clientX - posRef.current.x, y: touch.clientY - posRef.current.y };
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+  }
+
+  function onTouchMove(e: TouchEvent) {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const x = Math.max(0, Math.min(window.innerWidth - 52, touch.clientX - dragOffset.current.x));
+    const y = Math.max(0, Math.min(window.innerHeight - 52, touch.clientY - dragOffset.current.y));
+    posRef.current = { x, y };
+    setPos({ x, y });
+  }
+
+  function onTouchEnd() {
+    isDragging.current = false;
+    window.removeEventListener('touchmove', onTouchMove);
+    window.removeEventListener('touchend', onTouchEnd);
+  }
+
   async function fetchMessages() {
     if (!user) return;
     try {
@@ -95,13 +157,28 @@ export default function ChatWidget() {
 
   if (!user || user.role === 'admin') return null;
 
+  // 채팅창이 열릴 때 화면 밖으로 나가지 않도록 위치 보정
+  const chatWidth = 320;
+  const chatHeight = 440;
+  const chatLeft = Math.min(pos.x, window.innerWidth - chatWidth);
+  const chatTop = Math.max(0, pos.y - chatHeight - 12);
+
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
+    <>
       {open && (
         <div style={{
-          width: 320, height: 440, background: '#fff', borderRadius: 16,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column',
-          marginBottom: 12, overflow: 'hidden',
+          position: 'fixed',
+          left: chatLeft,
+          top: chatTop,
+          width: chatWidth,
+          height: chatHeight,
+          background: '#fff',
+          borderRadius: 16,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          zIndex: 1000,
         }}>
           {/* 헤더 */}
           <div style={{
@@ -176,7 +253,12 @@ export default function ChatWidget() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      {/* 드래그 가능한 버튼 */}
+      <div
+        style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 1001, cursor: 'grab', touchAction: 'none' }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+      >
         <Badge count={unread} offset={[-4, 4]}>
           <Button
             type="primary" shape="circle" size="large"
@@ -186,6 +268,6 @@ export default function ChatWidget() {
           />
         </Badge>
       </div>
-    </div>
+    </>
   );
 }
