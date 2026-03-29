@@ -148,16 +148,14 @@ export default function ChatRoom() {
     if (!user || !roomId || joinedRef.current) return;
     joinedRef.current = true;
 
-    const { data: session } = await supabase.auth.getSession();
-    const token = session.session?.access_token;
-
     const res = await supabase.functions.invoke('room-action', {
       body: { action: 'join', room_id: roomId },
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    if (res.error || res.data?.error) {
-      antMessage.error(res.data?.error || '입장에 실패했습니다.');
+    if (res.error || res.data?.ok === false) {
+      const errMsg = res.data?.error || res.error?.message || '입장에 실패했습니다.';
+      antMessage.error(errMsg);
+      joinedRef.current = false;
       navigate('/rooms');
     }
   }, [user, roomId, navigate]);
@@ -167,12 +165,8 @@ export default function ChatRoom() {
     if (!user || !roomId || !joinedRef.current) return;
     joinedRef.current = false;
 
-    const { data: session } = await supabase.auth.getSession();
-    const token = session.session?.access_token;
-
     await supabase.functions.invoke('room-action', {
       body: { action: 'leave', room_id: roomId },
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }, [user, roomId]);
 
@@ -290,15 +284,11 @@ export default function ChatRoom() {
 
   // ── 추방 ──────────────────────────────────────────────────
   async function handleKick(targetUserId: string) {
-    const { data: session } = await supabase.auth.getSession();
-    const token = session.session?.access_token;
-
     const res = await supabase.functions.invoke('room-action', {
       body: { action: 'kick', room_id: roomId, target_user_id: targetUserId },
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
-    if (res.data?.error) {
+    if (res.data?.ok === false) {
       antMessage.error(res.data.error);
     } else {
       antMessage.success('추방되었습니다.');

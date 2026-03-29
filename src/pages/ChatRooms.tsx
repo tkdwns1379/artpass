@@ -91,17 +91,16 @@ export default function ChatRooms() {
     const values = await form.validateFields();
     setCreating(true);
     try {
-      const { error } = await supabase.from('rooms').insert({
+      const { data: newRoom, error } = await supabase.from('rooms').insert({
         name: values.name,
         created_by: user.id,
         tags: values.tags ?? [],
         max_members: values.max_members ?? 10,
-      });
+      }).select('id').single();
       if (error) throw new Error(error.message);
-      message.success('방이 생성되었습니다!');
       setCreateOpen(false);
       form.resetFields();
-      fetchRooms();
+      navigate(`/rooms/${newRoom.id}`);
     } catch (e: unknown) {
       message.error((e as Error).message);
     } finally {

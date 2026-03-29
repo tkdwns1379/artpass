@@ -116,11 +116,7 @@ export default function Admin() {
 
       // 이메일 맵 가져오기 (Edge Function)
       let emailMap: Record<string, string> = {};
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      const res = await supabase.functions.invoke('get-user-emails', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await supabase.functions.invoke('get-user-emails');
       if (res.data?.ok === false) {
         console.error('get-user-emails error:', res.data.error);
       } else {
