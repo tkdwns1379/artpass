@@ -6,10 +6,11 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined, SendOutlined, UserOutlined,
-  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined, TeamOutlined, UserAddOutlined,
+  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined, TeamOutlined, UserAddOutlined, FlagOutlined,
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import ReportModal from '@/components/ReportModal';
 import { useFloatingChat } from '@/contexts/FloatingChatContext';
 
 const { Text } = Typography;
@@ -52,6 +53,7 @@ export default function ChatRoom() {
   const [loading, setLoading] = useState(true);
   const [kicked, setKicked] = useState(false);
   const [kickedUntil, setKickedUntil] = useState<Date | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ userId: string; content: string } | null>(null);
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.sm;
@@ -551,6 +553,15 @@ export default function ChatRoom() {
                       </div>
                     </div>
                   </div>
+                  {!isMine && msg.user_id && (
+                    <Tooltip title="신고">
+                      <Button
+                        type="text" size="small" icon={<FlagOutlined />}
+                        onClick={() => setReportTarget({ userId: msg.user_id!, content: msg.content })}
+                        style={{ color: '#ccc', padding: '0 4px', alignSelf: 'center' }}
+                      />
+                    </Tooltip>
+                  )}
                 </div>
               );
             })}
@@ -755,6 +766,15 @@ export default function ChatRoom() {
           );
         })}
       </Drawer>
+
+      <ReportModal
+        open={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        reportedUserId={reportTarget?.userId ?? ''}
+        messageContent={reportTarget?.content ?? ''}
+        messageType="room"
+        roomId={roomId}
+      />
     </div>
   );
 }

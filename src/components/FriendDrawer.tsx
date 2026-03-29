@@ -5,10 +5,11 @@ import {
 } from 'antd';
 import {
   UserOutlined, CheckOutlined, CloseOutlined,
-  SendOutlined, ArrowLeftOutlined, MessageOutlined,
+  SendOutlined, ArrowLeftOutlined, MessageOutlined, FlagOutlined,
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import ReportModal from '@/components/ReportModal';
 
 const { Text } = Typography;
 
@@ -43,6 +44,7 @@ export default function FriendDrawer({ open, onClose }: FriendDrawerProps) {
   const [dmLoading, setDmLoading] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ userId: string; content: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   async function fetchFriends() {
@@ -263,7 +265,14 @@ export default function FriendDrawer({ open, onClose }: FriendDrawerProps) {
             dms.map(m => {
               const isMine = m.senderId === user?.id;
               return (
-                <div key={m.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
+                <div key={m.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 4, marginBottom: 10 }}>
+                  {!isMine && (
+                    <Button
+                      type="text" size="small" icon={<FlagOutlined />}
+                      onClick={() => setReportTarget({ userId: m.senderId, content: m.content })}
+                      style={{ color: '#ddd', padding: '0 2px', flexShrink: 0 }}
+                    />
+                  )}
                   <div style={{
                     maxWidth: '75%', padding: '8px 12px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
                     background: isMine ? '#1677ff' : '#fff', color: isMine ? '#fff' : '#333',
@@ -293,6 +302,15 @@ export default function FriendDrawer({ open, onClose }: FriendDrawerProps) {
           />
           <Button type="primary" shape="circle" icon={<SendOutlined />} onClick={handleSend} loading={sending} disabled={!input.trim()} />
         </div>
+        {reportTarget && (
+          <ReportModal
+            open={!!reportTarget}
+            onClose={() => setReportTarget(null)}
+            reportedUserId={reportTarget.userId}
+            messageContent={reportTarget.content}
+            messageType="dm"
+          />
+        )}
       </Drawer>
     );
   }

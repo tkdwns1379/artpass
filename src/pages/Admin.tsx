@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Switch, Typography, Tabs, Tag, Popconfirm, message, Space, Badge, List, Avatar } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined, CheckOutlined, UserOutlined, SendOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined, CheckOutlined, UserOutlined, SendOutlined, FlagOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { getUniversities, mapUniversity } from '@/api/client';
 
@@ -33,6 +33,18 @@ interface UserProfile {
   isConfirmed?: boolean;
   createdAt: string;
   userNumber?: number | null;
+}
+
+interface Report {
+  id: string;
+  reporterName: string;
+  reportedName: string;
+  messageContent: string;
+  messageType: 'room' | 'dm';
+  reasonCategory: string;
+  reasonDetail: string | null;
+  status: 'pending' | 'resolved' | 'dismissed';
+  createdAt: string;
 }
 
 interface Conversation {
@@ -93,6 +105,10 @@ export default function Admin() {
   const [newMsgModalOpen, setNewMsgModalOpen] = useState(false);
   const [newMsgUserId, setNewMsgUserId] = useState<string | undefined>();
   const [newMsgContent, setNewMsgContent] = useState('');
+
+  // 신고 관련
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   // PDF 파싱 관련
   const [pdfParsing, setPdfParsing] = useState(false);
@@ -441,6 +457,60 @@ export default function Admin() {
     }
   }
 
+  async function fetchReports() {
+    setReportsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+
+      const allIds = new Set([
+        ...(data ?? []).map(r => r.reporter_id),
+        ...(data ?? []).map(r => r.reported_user_id),
+      ]);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', [...allIds]);
+      const nameMap: Record<string, string> = {};
+      (profiles ?? []).forEach(p => { nameMap[p.id] = p.name; });
+
+      setReports(
+        (data ?? []).map(r => ({
+          id: r.id,
+          reporterName: nameMap[r.reporter_id] ?? r.reporter_id.slice(0, 8),
+          reportedName: nameMap[r.reported_user_id] ?? r.reported_user_id.slice(0, 8),
+          messageContent: r.message_content,
+          messageType: r.message_type,
+          reasonCategory: r.reason_category,
+          reasonDetail: r.reason_detail,
+          status: r.status,
+          createdAt: r.created_at,
+        }))
+      );
+    } catch (e: unknown) {
+      message.error((e as Error).message || '신고 목록을 불러오지 못했습니다.');
+    } finally {
+      setReportsLoading(false);
+    }
+  }
+
+  async function handleReportStatus(id: string, status: 'resolved' | 'dismissed') {
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .update({ status })
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+      message.success(status === 'resolved' ? '처리 완료로 변경했습니다.' : '무시로 변경했습니다.');
+      fetchReports();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '처리에 실패했습니다.');
+    }
+  }
+
   async function handleTogglePremium(id: string, current: boolean) {
     try {
       const { error } = await supabase
@@ -575,7 +645,7 @@ export default function Admin() {
         }}
       />
 
-      <Tabs items={[
+      <Tabs onChange={(key) => { if (key === 'reports') fetchReports(); }} items={[
         {
           key: 'universities',
           label: `대학 정보 관리 (${universities.length})`,
@@ -725,6 +795,68 @@ export default function Admin() {
               </div>
             </div>
             </>
+          ),
+        },
+        {
+          key: 'reports',
+          label: (
+            <Badge count={reports.filter(r => r.status === 'pending').length} offset={[6, 0]}>
+              <FlagOutlined /> 신고현황
+            </Badge>
+          ),
+          children: (
+            <Table
+              dataSource={reports}
+              rowKey="id"
+              size="small"
+              loading={reportsLoading}
+              pagination={{ pageSize: 20 }}
+              columns={[
+                {
+                  title: '신고일시', dataIndex: 'createdAt', key: 'createdAt', width: 110,
+                  render: (v: string) => <span style={{ fontSize: 11 }}>{v?.slice(0, 16).replace('T', ' ')}</span>,
+                },
+                {
+                  title: '유형', dataIndex: 'messageType', key: 'messageType', width: 60,
+                  render: (v: string) => <Tag color={v === 'room' ? 'blue' : 'purple'}>{v === 'room' ? '채팅방' : 'DM'}</Tag>,
+                },
+                { title: '신고자', dataIndex: 'reporterName', key: 'reporterName', width: 80 },
+                { title: '피신고자', dataIndex: 'reportedName', key: 'reportedName', width: 80 },
+                {
+                  title: '사유', dataIndex: 'reasonCategory', key: 'reasonCategory', width: 100,
+                  render: (v: string) => <Tag>{v}</Tag>,
+                },
+                {
+                  title: '메시지', dataIndex: 'messageContent', key: 'messageContent',
+                  render: (v: string) => (
+                    <span style={{ fontSize: 12, color: '#555' }}>
+                      {v?.slice(0, 50)}{v?.length > 50 ? '...' : ''}
+                    </span>
+                  ),
+                },
+                {
+                  title: '상세', dataIndex: 'reasonDetail', key: 'reasonDetail', width: 120,
+                  render: (v: string | null) => v ? <span style={{ fontSize: 11, color: '#888' }}>{v}</span> : <span style={{ color: '#ccc' }}>-</span>,
+                },
+                {
+                  title: '상태', dataIndex: 'status', key: 'status', width: 80,
+                  render: (v: string) => (
+                    <Tag color={v === 'pending' ? 'orange' : v === 'resolved' ? 'green' : 'default'}>
+                      {v === 'pending' ? '대기' : v === 'resolved' ? '처리완료' : '무시'}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: '처리', key: 'action', width: 130,
+                  render: (_: unknown, r: Report) => r.status !== 'pending' ? null : (
+                    <Space size={4}>
+                      <Button size="small" type="primary" onClick={() => handleReportStatus(r.id, 'resolved')}>처리완료</Button>
+                      <Button size="small" onClick={() => handleReportStatus(r.id, 'dismissed')}>무시</Button>
+                    </Space>
+                  ),
+                },
+              ]}
+            />
           ),
         },
       ]} />
