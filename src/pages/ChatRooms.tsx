@@ -148,13 +148,13 @@ export default function ChatRooms() {
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* 헤더 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <Title level={4} style={{ margin: 0 }}>💬 채팅방</Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap' }}>💬 채팅방</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>입시 정보를 실시간으로 공유하세요</Text>
         </div>
         {user && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ flexShrink: 0 }}>
             방 만들기
           </Button>
         )}
