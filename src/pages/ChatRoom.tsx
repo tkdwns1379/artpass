@@ -219,17 +219,25 @@ export default function ChatRoom() {
               }
             }
           }
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: msg.id,
-              user_id: msg.user_id,
-              content: msg.content,
-              type: msg.type as 'message' | 'system',
-              created_at: msg.created_at,
-              sender_name: senderName,
-            },
-          ]);
+          setMessages((prev) => {
+            // 낙관적으로 추가한 임시 메시지 제거 후 실제 메시지로 교체
+            const filtered = prev.filter(
+              (m) => !(m.id.startsWith('temp-') && m.user_id === msg.user_id && m.content === msg.content)
+            );
+            // 이미 있는 메시지면 중복 추가 방지
+            if (filtered.some((m) => m.id === msg.id)) return filtered;
+            return [
+              ...filtered,
+              {
+                id: msg.id,
+                user_id: msg.user_id,
+                content: msg.content,
+                type: msg.type as 'message' | 'system',
+                created_at: msg.created_at,
+                sender_name: senderName,
+              },
+            ];
+          });
         }
       )
       .on(
@@ -288,6 +296,21 @@ export default function ChatRoom() {
     setSending(true);
     const content = input.trim();
     setInput('');
+
+    // 낙관적 업데이트: 즉시 UI에 표시
+    const tempId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        user_id: user.id,
+        content,
+        type: 'message',
+        created_at: new Date().toISOString(),
+        sender_name: profileMap[user.id]?.name,
+      },
+    ]);
+
     try {
       const { error } = await supabase.from('room_messages').insert({
         room_id: roomId,
@@ -299,6 +322,7 @@ export default function ChatRoom() {
     } catch {
       antMessage.error('메시지 전송 실패');
       setInput(content);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setSending(false);
     }
