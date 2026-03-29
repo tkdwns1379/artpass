@@ -537,7 +537,10 @@
   },
   {
     "name": "추계예술대학교",
-    "status": "failed"
+    "status": "ok",
+    "file": "C:\\design-admission\\tools\\downloaded\\추계예술대학교_2026.pdf",
+    "url": "https://jdream.jne.go.kr/jdream/file/download/univ-entrance.do?t=3&y=2026&fname=173-1-1.pdf",
+    "size": 434
   },
   {
     "name": "충남대학교",

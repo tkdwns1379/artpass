@@ -3,13 +3,16 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Button, Avatar, Dropdown, Typography, Space, Modal, Form, Input, message } from 'antd';
 import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFloatingChat } from '@/contexts/FloatingChatContext';
 import { supabase } from '@/lib/supabase';
 import ChatWidget from '@/components/ChatWidget';
+import FloatingChat from '@/components/FloatingChat';
 
 const { Header, Content, Footer } = Layout;
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
+  const { floatingRoom, minimize } = useFloatingChat();
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
@@ -17,6 +20,14 @@ export default function MainLayout() {
   const [pwModalOpen, setPwModalOpen] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
   const [pwForm] = Form.useForm();
+
+  function handleLogoClick() {
+    // 채팅방 안에 있을 때 로고 클릭 → 미니 채팅으로 전환
+    if (isChatRoom && floatingRoom) {
+      minimize();
+    }
+    navigate('/');
+  }
 
   async function handleChangePassword() {
     const values = await pwForm.validateFields();
@@ -26,7 +37,6 @@ export default function MainLayout() {
     }
     setPwLoading(true);
     try {
-      // Supabase: 비밀번호 변경 (현재 세션 사용자)
       const { error } = await supabase.auth.updateUser({ password: values.newPassword });
       if (error) throw new Error(error.message);
       message.success('비밀번호가 변경되었습니다.');
@@ -77,7 +87,7 @@ export default function MainLayout() {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }}>
         <Space size={0} align="center">
-          <Typography.Title level={4} style={{ margin: 0, cursor: 'pointer', color: '#1677ff' }} onClick={() => navigate('/')}>
+          <Typography.Title level={4} style={{ margin: 0, cursor: 'pointer', color: '#1677ff' }} onClick={handleLogoClick}>
             아트패스
           </Typography.Title>
           <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 12px' }} />
@@ -118,6 +128,7 @@ export default function MainLayout() {
       )}
 
       <ChatWidget />
+      <FloatingChat />
 
       <Modal
         title="비밀번호 변경"

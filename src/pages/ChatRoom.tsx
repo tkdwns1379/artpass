@@ -6,10 +6,11 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined, SendOutlined, UserOutlined,
-  CrownFilled, SafetyCertificateFilled, StopOutlined,
+  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined,
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFloatingChat } from '@/contexts/FloatingChatContext';
 
 const { Text } = Typography;
 
@@ -38,8 +39,9 @@ interface ChatMsg {
 
 export default function ChatRoom() {
   const { id: roomId } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { floatingRoom, isMinimized, minimizingRef, setFloatingRoom, expand, closeFloating } = useFloatingChat();
 
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -51,12 +53,10 @@ export default function ChatRoom() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const joinedRef = useRef(false);
-
-  // ── 프로필 맵 (id → {name, role}) ─────────────────────────
   const [profileMap, setProfileMap] = useState<Record<string, { name: string; role: string }>>({});
 
   async function fetchProfiles(ids: string[]) {
-    if (ids.length === 0) return;
+    if (ids.length === 0) return {};
     const { data } = await supabase
       .from('profiles')
       .select('id, name, role')
@@ -67,7 +67,6 @@ export default function ChatRoom() {
     return map;
   }
 
-  // ── 방 정보 로드 ───────────────────────────────────────────
   async function fetchRoom() {
     const { data, error } = await supabase
       .from('rooms')
@@ -76,9 +75,10 @@ export default function ChatRoom() {
       .single();
     if (error || !data) { navigate('/rooms'); return; }
     setRoom(data as RoomInfo);
+    // context에 방 정보 등록
+    setFloatingRoom({ id: data.id, name: data.name });
   }
 
-  // ── 현재 멤버 로드 ─────────────────────────────────────────
   async function fetchMembers(map?: Record<string, { name: string; role: string }>) {
     const { data } = await supabase
       .from('room_members')
@@ -87,8 +87,6 @@ export default function ChatRoom() {
 
     const ids = (data ?? []).map((m) => m.user_id);
     const profiles = map ?? profileMap;
-
-    // 아직 프로필 없는 유저 추가 조회
     const missing = ids.filter((id) => !profiles[id]);
     let merged = profiles;
     if (missing.length > 0) {
@@ -111,7 +109,6 @@ export default function ChatRoom() {
     );
   }
 
-  // ── 메시지 로드 ────────────────────────────────────────────
   async function fetchMessages(map?: Record<string, { name: string; role: string }>) {
     const { data } = await supabase
       .from('room_messages')
@@ -143,7 +140,6 @@ export default function ChatRoom() {
     );
   }
 
-  // ── 입장 ──────────────────────────────────────────────────
   const joinRoom = useCallback(async () => {
     if (!user || !roomId || joinedRef.current) return;
     joinedRef.current = true;
@@ -160,18 +156,31 @@ export default function ChatRoom() {
     }
   }, [user, roomId, navigate]);
 
-  // ── 퇴장 ──────────────────────────────────────────────────
   const leaveRoom = useCallback(async () => {
     if (!user || !roomId || !joinedRef.current) return;
     joinedRef.current = false;
-
     await supabase.functions.invoke('room-action', {
       body: { action: 'leave', room_id: roomId },
     });
   }, [user, roomId]);
 
-  // ── 초기화 ────────────────────────────────────────────────
+  // 명시적 퇴장 (뒤로가기 버튼)
+  const handleExplicitLeave = useCallback(async () => {
+    closeFloating();
+    await leaveRoom();
+    navigate('/rooms');
+  }, [closeFloating, leaveRoom, navigate]);
+
+  // FloatingChat에서 같은 방으로 돌아오면 expand
   useEffect(() => {
+    if (floatingRoom?.id === roomId && isMinimized) {
+      expand();
+    }
+  }, []);
+
+  useEffect(() => {
+    // auth 로딩 중에는 아무것도 하지 않음 (새로고침 시 로그인 리다이렉트 방지)
+    if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     if (!roomId) return;
 
@@ -184,7 +193,6 @@ export default function ChatRoom() {
       setLoading(false);
     })();
 
-    // 실시간 구독
     const channel = supabase
       .channel(`room:${roomId}`)
       .on(
@@ -223,44 +231,53 @@ export default function ChatRoom() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` },
         (payload) => {
-          // 내가 추방된 경우
           if (
             payload.eventType === 'DELETE' &&
             (payload.old as { user_id?: string })?.user_id === user?.id
           ) {
             setKicked(true);
           }
+          // 방장 변경 감지를 위해 room 정보도 갱신
+          fetchRoom();
           fetchMembers();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+        () => { fetchRoom(); }
+      )
       .subscribe();
 
-    // 페이지 떠날 때 퇴장
     const handleBeforeUnload = () => { leaveRoom(); };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      leaveRoom();
+      if (minimizingRef.current) {
+        // 미니채팅으로 전환 → leaveRoom 호출 안 함
+        minimizingRef.current = false;
+      } else {
+        leaveRoom();
+        closeFloating();
+      }
     };
-  }, [roomId, user]);
+  }, [roomId, user, authLoading]);
 
-  // 추방된 경우 처리
   useEffect(() => {
     if (kicked) {
       antMessage.error('방에서 추방되었습니다.', 3);
       joinedRef.current = false;
+      closeFloating();
       navigate('/rooms');
     }
   }, [kicked, navigate]);
 
-  // 메시지 스크롤
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── 메시지 전송 ───────────────────────────────────────────
   async function handleSend() {
     if (!input.trim() || !user || !roomId) return;
     setSending(true);
@@ -282,12 +299,10 @@ export default function ChatRoom() {
     }
   }
 
-  // ── 추방 ──────────────────────────────────────────────────
   async function handleKick(targetUserId: string) {
     const res = await supabase.functions.invoke('room-action', {
       body: { action: 'kick', room_id: roomId, target_user_id: targetUserId },
     });
-
     if (res.data?.ok === false) {
       antMessage.error(res.data.error);
     } else {
@@ -295,8 +310,18 @@ export default function ChatRoom() {
     }
   }
 
-  // ── 렌더 ──────────────────────────────────────────────────
-  if (loading) {
+  async function handleTransfer(targetUserId: string) {
+    const res = await supabase.functions.invoke('room-action', {
+      body: { action: 'transfer', room_id: roomId, target_user_id: targetUserId },
+    });
+    if (res.data?.ok === false) {
+      antMessage.error(res.data.error);
+    } else {
+      antMessage.success('방장을 위임했습니다.');
+    }
+  }
+
+  if (authLoading || loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
         <Spin size="large" />
@@ -313,17 +338,23 @@ export default function ChatRoom() {
     return isAdmin || isOwner;
   }
 
+  function canTransfer(member: Member) {
+    if (member.user_id === user?.id) return false;
+    if (member.role === 'admin') return false;
+    return isOwner || isAdmin;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
       {/* 상단 헤더 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 0', borderBottom: '1px solid #f0f0f0', marginBottom: 0,
+        padding: '12px 0', borderBottom: '1px solid #f0f0f0',
         flexWrap: 'wrap',
       }}>
         <Button
           icon={<ArrowLeftOutlined />}
-          onClick={async () => { await leaveRoom(); navigate('/rooms'); }}
+          onClick={handleExplicitLeave}
           type="text"
         />
         <div style={{ flex: 1 }}>
@@ -341,10 +372,8 @@ export default function ChatRoom() {
 
       {/* 본문 */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
         {/* 채팅 영역 */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* 메시지 목록 */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px', background: '#f9fafb' }}>
             {messages.map((msg) => {
               if (msg.type === 'system') {
@@ -401,7 +430,6 @@ export default function ChatRoom() {
             <div ref={bottomRef} />
           </div>
 
-          {/* 입력창 */}
           <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, background: '#fff' }}>
             <Input
               value={input}
@@ -438,7 +466,7 @@ export default function ChatRoom() {
               <div
                 key={member.user_id}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
+                  display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 12px',
                   background: isMe ? '#e6f4ff' : undefined,
                 }}
@@ -464,20 +492,38 @@ export default function ChatRoom() {
                     </Text>
                   </div>
                 </div>
-                {canKick(member) && (
-                  <Popconfirm
-                    title={`${member.name}님을 추방할까요?`}
-                    onConfirm={() => handleKick(member.user_id)}
-                    okText="추방" cancelText="취소" okButtonProps={{ danger: true }}
-                    placement="left"
-                  >
-                    <Button
-                      type="text" size="small" danger
-                      icon={<StopOutlined />}
-                      style={{ padding: 0, height: 20, width: 20, minWidth: 20 }}
-                    />
-                  </Popconfirm>
-                )}
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {canTransfer(member) && (
+                    <Popconfirm
+                      title={`${member.name}님에게 방장을 위임할까요?`}
+                      onConfirm={() => handleTransfer(member.user_id)}
+                      okText="위임" cancelText="취소"
+                      placement="left"
+                    >
+                      <Tooltip title="방장 위임">
+                        <Button
+                          type="text" size="small"
+                          icon={<SwapOutlined />}
+                          style={{ padding: 0, height: 20, width: 20, minWidth: 20, color: '#faad14' }}
+                        />
+                      </Tooltip>
+                    </Popconfirm>
+                  )}
+                  {canKick(member) && (
+                    <Popconfirm
+                      title={`${member.name}님을 추방할까요?`}
+                      onConfirm={() => handleKick(member.user_id)}
+                      okText="추방" cancelText="취소" okButtonProps={{ danger: true }}
+                      placement="left"
+                    >
+                      <Button
+                        type="text" size="small" danger
+                        icon={<StopOutlined />}
+                        style={{ padding: 0, height: 20, width: 20, minWidth: 20 }}
+                      />
+                    </Popconfirm>
+                  )}
+                </div>
               </div>
             );
           })}

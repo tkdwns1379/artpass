@@ -26,13 +26,11 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    // 호출자 확인
     const { data: { user: caller }, error: authErr } = await admin.auth.getUser(
       authHeader.replace('Bearer ', '')
     )
     if (authErr || !caller) return json({ ok: false, error: 'Unauthorized' })
 
-    // 호출자 프로필 (role 확인)
     const { data: callerProfile } = await admin
       .from('profiles')
       .select('name, role, is_banned')
@@ -48,7 +46,6 @@ Deno.serve(async (req) => {
 
     // ──────────────── JOIN ────────────────────────────────────
     if (action === 'join') {
-      // 방 존재 + 인원 확인
       const { data: room } = await admin
         .from('rooms')
         .select('id, max_members')
@@ -57,7 +54,6 @@ Deno.serve(async (req) => {
 
       if (!room) return json({ ok: false, error: '방이 존재하지 않습니다.' })
 
-      // 관리자가 아닌 경우에만 인원 제한 체크 (일반 유저 수만 카운트)
       if (!callerIsAdmin) {
         const { data: memberList } = await admin
           .from('room_members')
@@ -73,7 +69,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 이미 입장 중이면 스킵
       const { data: existing } = await admin
         .from('room_members')
         .select('id')
@@ -96,13 +91,27 @@ Deno.serve(async (req) => {
 
     // ──────────────── LEAVE ───────────────────────────────────
     if (action === 'leave') {
+      const { data: roomData } = await admin
+        .from('rooms')
+        .select('created_by')
+        .eq('id', room_id)
+        .single()
+
+      const isOwnerLeaving = roomData?.created_by === caller.id
+
       await admin
         .from('room_members')
         .delete()
         .eq('room_id', room_id)
         .eq('user_id', caller.id)
 
-      // 남은 인원 확인 → 0명이면 방 삭제
+      await admin.from('room_messages').insert({
+        room_id,
+        user_id: null,
+        content: `${callerName}님이 퇴장했습니다.`,
+        type: 'system',
+      })
+
       const { count: remaining } = await admin
         .from('room_members')
         .select('*', { count: 'exact', head: true })
@@ -113,10 +122,59 @@ Deno.serve(async (req) => {
         return json({ ok: true, deleted: true })
       }
 
+      // 방장이 나간 경우 자동 위임 (가장 먼저 입장한 멤버에게)
+      if (isOwnerLeaving) {
+        const { data: nextMember } = await admin
+          .from('room_members')
+          .select('user_id')
+          .eq('room_id', room_id)
+          .order('joined_at', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (nextMember) {
+          await admin.from('rooms').update({ created_by: nextMember.user_id }).eq('id', room_id)
+          const { data: newOwnerProfile } = await admin
+            .from('profiles').select('name').eq('id', nextMember.user_id).single()
+          await admin.from('room_messages').insert({
+            room_id,
+            user_id: null,
+            content: `${newOwnerProfile?.name ?? '멤버'}님이 새 방장이 되었습니다.`,
+            type: 'system',
+          })
+        }
+      }
+
+      return json({ ok: true })
+    }
+
+    // ──────────────── TRANSFER (방장 위임) ─────────────────────
+    if (action === 'transfer') {
+      if (!target_user_id) return json({ ok: false, error: 'target_user_id 필요' })
+
+      const { data: roomData } = await admin
+        .from('rooms').select('created_by').eq('id', room_id).single()
+
+      const callerIsOwner = roomData?.created_by === caller.id
+      if (!callerIsOwner && !callerIsAdmin) return json({ ok: false, error: '방장만 위임할 수 있습니다.' })
+
+      const { data: targetMember } = await admin
+        .from('room_members').select('user_id')
+        .eq('room_id', room_id).eq('user_id', target_user_id).maybeSingle()
+
+      if (!targetMember) return json({ ok: false, error: '해당 유저가 방에 없습니다.' })
+
+      const { data: targetProfile } = await admin
+        .from('profiles').select('name, role').eq('id', target_user_id).single()
+
+      if (targetProfile?.role === 'admin') return json({ ok: false, error: '관리자에게는 위임할 수 없습니다.' })
+
+      await admin.from('rooms').update({ created_by: target_user_id }).eq('id', room_id)
+
       await admin.from('room_messages').insert({
         room_id,
         user_id: null,
-        content: `${callerName}님이 퇴장했습니다.`,
+        content: `${callerName}님이 ${targetProfile?.name ?? '멤버'}님에게 방장을 위임했습니다.`,
         type: 'system',
       })
 
@@ -127,42 +185,25 @@ Deno.serve(async (req) => {
     if (action === 'kick') {
       if (!target_user_id) return json({ ok: false, error: 'target_user_id 필요' })
 
-      // 대상 프로필
       const { data: targetProfile } = await admin
-        .from('profiles')
-        .select('name, role')
-        .eq('id', target_user_id)
-        .single()
+        .from('profiles').select('name, role').eq('id', target_user_id).single()
 
-      const targetIsAdmin = targetProfile?.role === 'admin'
-      const targetName = targetProfile?.name ?? '알 수 없음'
+      if (targetProfile?.role === 'admin') return json({ ok: false, error: '관리자는 추방할 수 없습니다.' })
 
-      // 관리자는 추방 불가
-      if (targetIsAdmin) return json({ ok: false, error: '관리자는 추방할 수 없습니다.' })
+      const { data: roomData } = await admin
+        .from('rooms').select('created_by').eq('id', room_id).single()
 
-      // 권한 확인: 방장 또는 관리자만 추방 가능
-      const { data: room } = await admin
-        .from('rooms')
-        .select('created_by')
-        .eq('id', room_id)
-        .single()
-
-      const callerIsOwner = room?.created_by === caller.id
-
-      if (!callerIsAdmin && !callerIsOwner) {
-        return json({ ok: false, error: '추방 권한이 없습니다.' })
-      }
+      const callerIsOwner = roomData?.created_by === caller.id
+      if (!callerIsAdmin && !callerIsOwner) return json({ ok: false, error: '추방 권한이 없습니다.' })
 
       await admin
-        .from('room_members')
-        .delete()
-        .eq('room_id', room_id)
-        .eq('user_id', target_user_id)
+        .from('room_members').delete()
+        .eq('room_id', room_id).eq('user_id', target_user_id)
 
       await admin.from('room_messages').insert({
         room_id,
         user_id: null,
-        content: `${targetName}님이 추방되었습니다.`,
+        content: `${targetProfile?.name ?? '멤버'}님이 추방되었습니다.`,
         type: 'system',
       })
 

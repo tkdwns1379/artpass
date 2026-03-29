@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { FloatingChatProvider } from '@/contexts/FloatingChatContext';
 import MainLayout from '@/layouts/MainLayout';
 import Home from '@/pages/Home';
 import UniversityDetail from '@/pages/UniversityDetail';
@@ -41,7 +42,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <FloatingChatProvider>
+          <AppRoutes />
+        </FloatingChatProvider>
       </AuthProvider>
     </BrowserRouter>
   );
