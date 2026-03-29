@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Button, Avatar, Dropdown, Typography, Space, Modal, Form, Input, message, Grid } from 'antd';
-import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFloatingChat } from '@/contexts/FloatingChatContext';
 import { supabase } from '@/lib/supabase';
 import ChatWidget from '@/components/ChatWidget';
 import FloatingChat from '@/components/FloatingChat';
+import FriendDrawer from '@/components/FriendDrawer';
 
 const { Header, Content, Footer } = Layout;
 
@@ -23,6 +24,7 @@ export default function MainLayout() {
   const [pwModalOpen, setPwModalOpen] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
   const [pwForm] = Form.useForm();
+  const [friendDrawerOpen, setFriendDrawerOpen] = useState(false);
 
   function handleLogoClick() {
     // 채팅방 안에 있을 때 로고 클릭 → 미니 채팅으로 전환
@@ -98,6 +100,14 @@ export default function MainLayout() {
           <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
             {screens.sm ? '소통 라운지' : '라운지'}
           </Button>
+          {user && user.role !== 'admin' && (
+            <>
+              <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 8px' }} />
+              <Button type="text" icon={<TeamOutlined />} onClick={() => setFriendDrawerOpen(true)} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {screens.sm ? '친구' : '친구'}
+              </Button>
+            </>
+          )}
         </Space>
 
         <Space size={screens.sm ? 8 : 4} style={{ flexShrink: 0 }}>
@@ -137,6 +147,7 @@ export default function MainLayout() {
 
       <ChatWidget />
       <FloatingChat />
+      <FriendDrawer open={friendDrawerOpen} onClose={() => setFriendDrawerOpen(false)} />
 
       <Modal
         title="비밀번호 변경"

@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Button, Input, Tag, Typography, Avatar, Spin, Popconfirm,
-  message as antMessage, Tooltip, Drawer, Grid,
+  message as antMessage, Tooltip, Drawer, Grid, Popover,
 } from 'antd';
 import {
   ArrowLeftOutlined, SendOutlined, UserOutlined,
-  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined, TeamOutlined,
+  CrownFilled, SafetyCertificateFilled, StopOutlined, SwapOutlined, TeamOutlined, UserAddOutlined,
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -391,6 +391,29 @@ export default function ChatRoom() {
     }
   }
 
+  async function handleAddFriend(targetUserId: string) {
+    if (!user) return;
+    // 이미 친구 관계인지 확인
+    const { data: existing } = await supabase
+      .from('friendships')
+      .select('id, status')
+      .or(
+        `and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`
+      )
+      .maybeSingle();
+
+    if (existing) {
+      antMessage.info(existing.status === 'accepted' ? '이미 친구입니다.' : '이미 친구 요청을 보냈습니다.');
+      return;
+    }
+    const { error } = await supabase.from('friendships').insert({
+      requester_id: user.id,
+      addressee_id: targetUserId,
+    });
+    if (error) antMessage.error('친구 요청 실패');
+    else antMessage.success('친구 요청을 보냈습니다!');
+  }
+
   async function handleTransfer(targetUserId: string) {
     const res = await supabase.functions.invoke('room-action', {
       body: { action: 'transfer', room_id: roomId, target_user_id: targetUserId },
@@ -563,7 +586,21 @@ export default function ChatRoom() {
                   background: isMe ? '#e6f4ff' : undefined,
                 }}
               >
-                <Avatar size={24} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0 }} />
+                {!isMe ? (
+                  <Popover
+                    content={
+                      <Button size="small" icon={<UserAddOutlined />} onClick={() => handleAddFriend(member.user_id)}>
+                        친구 추가
+                      </Button>
+                    }
+                    trigger="click"
+                    placement="right"
+                  >
+                    <Avatar size={24} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
+                  </Popover>
+                ) : (
+                  <Avatar size={24} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     {isMemberAdmin && (
@@ -646,7 +683,21 @@ export default function ChatRoom() {
                 borderBottom: '1px solid #f5f5f5',
               }}
             >
-              <Avatar size={32} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0 }} />
+              {!isMe ? (
+                <Popover
+                  content={
+                    <Button size="small" icon={<UserAddOutlined />} onClick={() => handleAddFriend(member.user_id)}>
+                      친구 추가
+                    </Button>
+                  }
+                  trigger="click"
+                  placement="left"
+                >
+                  <Avatar size={32} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
+                </Popover>
+              ) : (
+                <Avatar size={32} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {isMemberAdmin && <SafetyCertificateFilled style={{ color: '#ff4d4f', fontSize: 12 }} />}
