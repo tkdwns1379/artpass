@@ -8,6 +8,8 @@ import Register from '@/pages/Register';
 import Admin from '@/pages/Admin';
 import Feedback from '@/pages/Feedback';
 import MyPage from '@/pages/MyPage';
+import ChatRooms from '@/pages/ChatRooms';
+import ChatRoom from '@/pages/ChatRoom';
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -28,6 +30,8 @@ function AppRoutes() {
         <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
         <Route path="feedback" element={<Feedback />} />
         <Route path="mypage" element={<MyPage />} />
+        <Route path="rooms" element={<ChatRooms />} />
+        <Route path="rooms/:id" element={<ChatRoom />} />
       </Route>
     </Routes>
   );

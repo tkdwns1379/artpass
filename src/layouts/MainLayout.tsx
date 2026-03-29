@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Button, Avatar, Dropdown, Typography, Space, Modal, Form, Input, message } from 'antd';
-import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import ChatWidget from '@/components/ChatWidget';
@@ -80,6 +80,9 @@ export default function MainLayout() {
         </Typography.Title>
 
         <Space>
+          <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555' }}>
+            채팅방
+          </Button>
           {user ? (
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
