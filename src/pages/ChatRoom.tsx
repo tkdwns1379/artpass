@@ -125,13 +125,17 @@ export default function ChatRoom() {
     );
   }
 
-  async function fetchMessages(map?: Record<string, { name: string; role: string }>) {
-    const { data } = await supabase
+  async function fetchMessages(map?: Record<string, { name: string; role: string }>, since?: string) {
+    let query = supabase
       .from('room_messages')
       .select('*')
       .eq('room_id', roomId!)
       .order('created_at', { ascending: true })
       .limit(200);
+
+    if (since) query = query.gte('created_at', since);
+
+    const { data } = await query;
 
     const ids = [...new Set((data ?? []).filter((m) => m.user_id).map((m) => m.user_id as string))];
     let profiles = map ?? profileMap;
@@ -204,8 +208,15 @@ export default function ChatRoom() {
       try {
         await fetchRoom();
         const map = await fetchProfiles([user.id]);
-        await fetchMessages(map);
         await joinRoom();
+        // 내 입장 시각 조회 → 그 이후 메시지만 표시
+        const { data: myMember } = await supabase
+          .from('room_members')
+          .select('joined_at')
+          .eq('room_id', roomId!)
+          .eq('user_id', user.id)
+          .single();
+        await fetchMessages(map, myMember?.joined_at);
         await fetchMembers(map);
       } catch (err) {
         console.error('ChatRoom init error:', err);
