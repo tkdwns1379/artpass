@@ -20,6 +20,9 @@ interface University {
   practiceRatio: string;
   competitionRate: string;
   note: string;
+  tips?: string[];
+  preparationGuide?: string;
+  applicationTips?: string;
 }
 
 interface UserProfile {
@@ -78,6 +81,9 @@ function toSnakeCase(values: Partial<University>) {
     practice_ratio: values.practiceRatio,
     competition_rate: values.competitionRate,
     note: values.note,
+    tips: values.tips && values.tips.length > 0 ? values.tips : undefined,
+    preparation_guide: values.preparationGuide || undefined,
+    application_tips: values.applicationTips || undefined,
   };
 }
 
@@ -300,6 +306,9 @@ export default function Admin() {
     form.setFieldsValue({
       ...u,
       practiceSubjects: u.practiceSubjects?.join(', ') || '',
+      tips: u.tips?.join('\n') || '',
+      preparationGuide: u.preparationGuide || '',
+      applicationTips: u.applicationTips || '',
     });
     setModalOpen(true);
   }
@@ -310,6 +319,9 @@ export default function Admin() {
       ...values,
       practiceSubjects: values.practiceSubjects
         ? values.practiceSubjects.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [],
+      tips: values.tips
+        ? values.tips.split('\n').filter(Boolean)
         : [],
     });
 
@@ -1026,6 +1038,15 @@ export default function Admin() {
           </Form.Item>
           <Form.Item name="note" label="특이사항">
             <Input.TextArea rows={2} placeholder="추가 설명" />
+          </Form.Item>
+          <Form.Item label="합격 팁" name="tips" help="한 줄씩 입력 (엔터로 구분)">
+            <Input.TextArea rows={4} placeholder={"팁1\n팁2\n팁3"} />
+          </Form.Item>
+          <Form.Item label="준비 가이드" name="preparationGuide">
+            <Input.TextArea rows={4} placeholder="수험생을 위한 준비 가이드" />
+          </Form.Item>
+          <Form.Item label="지원 팁" name="applicationTips">
+            <Input.TextArea rows={3} placeholder="지원 전략 및 팁" />
           </Form.Item>
         </Form>
       </Modal>
