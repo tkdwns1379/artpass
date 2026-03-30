@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Table, Button, Modal, Form, Input, Typography,
-  Space, message, Breadcrumb, Tag, Spin,
+  Space, message, Breadcrumb, Tag,
 } from 'antd';
 import {
   PlusOutlined, EyeOutlined, LikeOutlined,
