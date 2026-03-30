@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Button, Avatar, Dropdown, Typography, Space, Modal, Form, Input, message, Grid } from 'antd';
-import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined, TeamOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, LoginOutlined, EditOutlined, SettingOutlined, LockOutlined, MessageOutlined, TeamOutlined, ReadOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFloatingChat } from '@/contexts/FloatingChatContext';
 import { supabase } from '@/lib/supabase';
@@ -99,6 +99,10 @@ export default function MainLayout() {
           <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 8px' }} />
           <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
             {screens.sm ? '소통 라운지' : '라운지'}
+          </Button>
+          <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 8px' }} />
+          <Button type="text" icon={<ReadOutlined />} onClick={() => navigate('/community')} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {screens.sm ? '커뮤니티' : '커뮤니티'}
           </Button>
           {user && (
             <>

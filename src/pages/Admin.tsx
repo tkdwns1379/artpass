@@ -110,6 +110,13 @@ export default function Admin() {
   const [reports, setReports] = useState<Report[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
 
+  // 게시판 관리 관련
+  const [boards, setBoards] = useState<{ id: string; name: string; description: string | null; display_order: number }[]>([]);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [boardModalOpen, setBoardModalOpen] = useState(false);
+  const [boardSaving, setBoardSaving] = useState(false);
+  const [boardForm] = Form.useForm();
+
   // PDF 파싱 관련
   const [pdfParsing, setPdfParsing] = useState(false);
   const [pdfResults, setPdfResults] = useState<University[]>([]);
@@ -497,6 +504,58 @@ export default function Admin() {
     }
   }
 
+  // =============================================
+  // 게시판 관리
+  // =============================================
+  async function fetchBoards() {
+    setBoardsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('boards')
+        .select('*')
+        .order('display_order', { ascending: true });
+      if (error) throw new Error(error.message);
+      setBoards(data ?? []);
+    } catch (e: unknown) {
+      message.error((e as Error).message || '게시판 목록을 불러오지 못했습니다.');
+    } finally {
+      setBoardsLoading(false);
+    }
+  }
+
+  async function handleBoardAdd() {
+    try {
+      const values = await boardForm.validateFields();
+      setBoardSaving(true);
+      const maxOrder = boards.length > 0 ? Math.max(...boards.map(b => b.display_order)) + 1 : 0;
+      const { error } = await supabase.from('boards').insert({
+        name: values.name.trim(),
+        description: values.description?.trim() || null,
+        display_order: maxOrder,
+      });
+      if (error) throw new Error(error.message);
+      message.success('게시판이 추가되었습니다.');
+      setBoardModalOpen(false);
+      boardForm.resetFields();
+      fetchBoards();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '게시판 추가에 실패했습니다.');
+    } finally {
+      setBoardSaving(false);
+    }
+  }
+
+  async function handleBoardDelete(id: string) {
+    try {
+      const { error } = await supabase.from('boards').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      message.success('게시판이 삭제되었습니다.');
+      fetchBoards();
+    } catch (e: unknown) {
+      message.error((e as Error).message || '게시판 삭제에 실패했습니다.');
+    }
+  }
+
   async function handleReportStatus(id: string, status: 'resolved' | 'dismissed') {
     try {
       const { error } = await supabase
@@ -645,7 +704,10 @@ export default function Admin() {
         }}
       />
 
-      <Tabs onChange={(key) => { if (key === 'reports') fetchReports(); }} items={[
+      <Tabs onChange={(key) => {
+        if (key === 'reports') fetchReports();
+        if (key === 'boards') fetchBoards();
+      }} items={[
         {
           key: 'universities',
           label: `대학 정보 관리 (${universities.length})`,
@@ -859,6 +921,64 @@ export default function Admin() {
             />
           ),
         },
+        {
+          key: 'boards',
+          label: '게시판 관리',
+          children: (
+            <>
+              <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setBoardModalOpen(true)}>
+                  게시판 추가
+                </Button>
+              </div>
+              <Table
+                dataSource={boards}
+                rowKey="id"
+                size="small"
+                loading={boardsLoading}
+                pagination={false}
+                columns={[
+                  {
+                    title: '순서',
+                    dataIndex: 'display_order',
+                    key: 'display_order',
+                    width: 60,
+                    render: (v: number) => <span style={{ color: '#888' }}>{v}</span>,
+                  },
+                  {
+                    title: '게시판명',
+                    dataIndex: 'name',
+                    key: 'name',
+                    render: (v: string) => <strong>{v}</strong>,
+                  },
+                  {
+                    title: '설명',
+                    dataIndex: 'description',
+                    key: 'description',
+                    render: (v: string | null) => v ?? <span style={{ color: '#ccc' }}>-</span>,
+                  },
+                  {
+                    title: '삭제',
+                    key: 'action',
+                    width: 80,
+                    render: (_: unknown, record: { id: string; name: string }) => (
+                      <Popconfirm
+                        title={`"${record.name}" 게시판을 삭제하시겠습니까?`}
+                        description="게시판의 모든 글과 댓글이 함께 삭제됩니다."
+                        onConfirm={() => handleBoardDelete(record.id)}
+                        okText="삭제"
+                        cancelText="취소"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button size="small" icon={<DeleteOutlined />} danger>삭제</Button>
+                      </Popconfirm>
+                    ),
+                  },
+                ]}
+              />
+            </>
+          ),
+        },
       ]} />
 
       <Modal
@@ -986,6 +1106,30 @@ export default function Admin() {
           style={{ marginTop: 12 }}
         />
         <div style={{ fontSize: 12, color: '#aaa', marginTop: 6 }}>한글 또는 영어만, 7자 이내</div>
+      </Modal>
+
+      {/* 게시판 추가 모달 */}
+      <Modal
+        title="게시판 추가"
+        open={boardModalOpen}
+        onOk={handleBoardAdd}
+        onCancel={() => { setBoardModalOpen(false); boardForm.resetFields(); }}
+        okText="추가"
+        cancelText="취소"
+        confirmLoading={boardSaving}
+      >
+        <Form form={boardForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="name"
+            label="게시판 이름"
+            rules={[{ required: true, message: '게시판 이름을 입력하세요' }]}
+          >
+            <Input placeholder="예: 작품 공유" maxLength={20} />
+          </Form.Item>
+          <Form.Item name="description" label="설명 (선택)">
+            <Input placeholder="게시판에 대한 간단한 설명" maxLength={50} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

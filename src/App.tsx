@@ -11,6 +11,9 @@ import Feedback from '@/pages/Feedback';
 import MyPage from '@/pages/MyPage';
 import ChatRooms from '@/pages/ChatRooms';
 import ChatRoom from '@/pages/ChatRoom';
+import CommunityHome from '@/pages/CommunityHome';
+import BoardPage from '@/pages/BoardPage';
+import PostDetail from '@/pages/PostDetail';
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +36,9 @@ function AppRoutes() {
         <Route path="mypage" element={<MyPage />} />
         <Route path="rooms" element={<ChatRooms />} />
         <Route path="rooms/:id" element={<ChatRoom />} />
+        <Route path="community" element={<CommunityHome />} />
+        <Route path="community/:boardId" element={<BoardPage />} />
+        <Route path="community/:boardId/:postId" element={<PostDetail />} />
       </Route>
     </Routes>
   );
