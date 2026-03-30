@@ -186,7 +186,7 @@ export default function ChatWidget() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>아트패스 문의</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>디자인패스 문의</div>
               <div style={{ fontSize: 11, opacity: 0.85 }}>관리자가 확인 후 답변드립니다</div>
             </div>
             <Button

@@ -94,7 +94,7 @@ export default function MainLayout() {
       }}>
         <Space size={0} align="center" style={{ flexShrink: 0 }}>
           <Typography.Title level={4} style={{ margin: 0, cursor: 'pointer', color: '#1677ff', whiteSpace: 'nowrap' }} onClick={handleLogoClick}>
-            아트패스
+            디자인패스
           </Typography.Title>
           <div style={{ width: 1, height: 16, background: '#e0e0e0', margin: '0 8px' }} />
           <Button type="text" icon={<MessageOutlined />} onClick={() => navigate('/rooms')} style={{ color: '#555', fontWeight: 500, whiteSpace: 'nowrap' }}>
@@ -141,7 +141,7 @@ export default function MainLayout() {
 
       {!isChatRoom && (
         <Footer style={{ textAlign: 'center', color: '#aaa', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
-          아트패스 © 2025 — 비공식 입시 정보 사이트
+          디자인패스 © 2025 — 비공식 입시 정보 사이트
         </Footer>
       )}
 

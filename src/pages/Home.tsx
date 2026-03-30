@@ -28,7 +28,7 @@ interface University {
 }
 
 export default function Home() {
-  const [search, setSearch] = useState(() => sessionStorage.getItem('artpass_search') || '');
+  const [search, setSearch] = useState(() => sessionStorage.getItem('designpass_search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [universities, setUniversities] = useState<University[]>([]);
   const { user } = useAuth();
@@ -47,7 +47,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      sessionStorage.setItem('artpass_search', search);
+      sessionStorage.setItem('designpass_search', search);
     }, 200);
     return () => clearTimeout(timer);
   }, [search]);
@@ -79,7 +79,7 @@ export default function Home() {
         padding: hasSearch ? '40px' : undefined,
       }}>
         <Title level={2} style={{ marginBottom: 4, color: '#1677ff' }}>모든 디자인 입시 정보의 모음집!</Title>
-        <Title level={3} style={{ marginTop: 0, marginBottom: 28, color: '#333', fontWeight: 400 }}>아트패스</Title>
+        <Title level={3} style={{ marginTop: 0, marginBottom: 28, color: '#333', fontWeight: 400 }}>디자인패스</Title>
         <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>
           추가됐으면 하는 학교·학과는 1:1 채팅으로 문의해 주세요 😊
         </Text>

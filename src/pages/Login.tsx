@@ -36,7 +36,7 @@ export default function Login() {
       <Card style={{ width: 400, borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <Title level={3} style={{ margin: 0, color: '#1677ff' }}>로그인</Title>
-          <Text type="secondary">아트패스 정보를 확인하세요</Text>
+          <Text type="secondary">디자인패스 정보를 확인하세요</Text>
         </div>
 
         <Form layout="vertical" onFinish={handleSubmit}>

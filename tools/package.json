@@ -1,7 +1,7 @@
 {
-  "name": "artpass-pdf-tools",
+  "name": "designpass-pdf-tools",
   "version": "1.0.0",
-  "description": "아트패스 모집요강 PDF 자동 수집/파싱 도구",
+  "description": "디자인패스 모집요강 PDF 자동 수집/파싱 도구",
   "scripts": {
     "download": "node 1-find-pdfs.js",
     "parse": "node 2-parse-pdfs.js"

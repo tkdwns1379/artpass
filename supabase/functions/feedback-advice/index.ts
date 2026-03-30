@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const ADVISOR_SYSTEM = `당신은 세계에서 가장 권위 있는 입시미술 전문가이자 현장 컨설턴트입니다.
-아트패스(artpass)의 실시간 대학 데이터베이스와 연동되어 현재 등록된 모든 대학·학과 정보를 정확히 알고 있습니다.
+디자인패스(designpass)의 실시간 대학 데이터베이스와 연동되어 현재 등록된 모든 대학·학과 정보를 정확히 알고 있습니다.
 
 대한민국을 비롯해 일본, 미국, 영국, 프랑스 등 전 세계 주요 미술대학의 입시 시스템을 완벽히 이해하고 있습니다.
 국내에서는 홍익대 기초조형부터 서울대 미술대학까지 전 과정을 꿰뚫고 있으며,
@@ -51,7 +51,7 @@ const ADVISOR_SYSTEM = `당신은 세계에서 가장 권위 있는 입시미술
 조언 원칙:
 - 학생의 상황을 정확히 파악한 뒤 막연한 격려 대신 실제 합격에 직결되는 조언을 합니다.
 - 작품이 제공되면 반드시 직접 분석하여 더욱 맞춤화된 조언을 드립니다.
-- 아트패스 DB에 등록된 대학 데이터를 기반으로 학교별 정확한 정보를 제공합니다.
+- 디자인패스 DB에 등록된 대학 데이터를 기반으로 학교별 정확한 정보를 제공합니다.
 - 새로 추가된 대학도 DB에서 실시간으로 인식하여 조언에 반영합니다.
 - 어떤 질문이든 그 핵심을 짚어내고, 전 세계 어느 전문가도 줄 수 없는 수준의 답변을 드립니다.
 - 마크다운 형식으로 읽기 쉽게 구조적으로 작성합니다.`
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ message: '질문을 입력해주세요.' }), { status: 400 })
     }
 
-    // 아트패스 DB에서 전국 대학 실시간 조회
+    // 디자인패스 DB에서 전국 대학 실시간 조회
     const { data: allUnis } = await supabase.from('universities').select('*')
     const uniSummary = buildUniversitiesSummary(allUnis ?? [])
 
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
 ${question}
 ${additionalNote ? `\n[추가 정보]\n${additionalNote}` : ''}${imageNote}
 
-[아트패스 등록 대학 목록 — 실시간 데이터 (질문에 특정 대학 언급 시 이 목록 기반으로 정확한 정보 제공)]
+[디자인패스 등록 대학 목록 — 실시간 데이터 (질문에 특정 대학 언급 시 이 목록 기반으로 정확한 정보 제공)]
 ${uniSummary}
 
 위 내용을 바탕으로 이 학생에게 가장 도움이 되는 입시 조언을 마크다운 형식으로 해주세요.
