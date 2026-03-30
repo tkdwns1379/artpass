@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Table, Button, Modal, Form, Input, Typography,
-  Space, message, Breadcrumb, Tag,
+  Space, message, Breadcrumb, Tag, Checkbox,
 } from 'antd';
 import {
   PlusOutlined, EyeOutlined, LikeOutlined,
@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { filterBadWords } from '@/utils/badWordFilter';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -31,6 +32,7 @@ interface Post {
   comment_count: number;
   created_at: string;
   author_name?: string;
+  is_notice: boolean;
 }
 
 export default function BoardPage() {
@@ -85,6 +87,7 @@ export default function BoardPage() {
         .from('posts')
         .select('*', { count: 'exact' })
         .eq('board_id', boardId)
+        .order('is_notice', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -128,6 +131,7 @@ export default function BoardPage() {
         user_id: user.id,
         title: values.title.trim(),
         content: values.content.trim(),
+        is_notice: user.role === 'admin' ? (values.is_notice ?? false) : false,
       });
       if (error) throw new Error(error.message);
       message.success('게시글이 작성되었습니다.');
@@ -152,7 +156,8 @@ export default function BoardPage() {
           style={{ cursor: 'pointer', color: '#1677ff', fontWeight: 500 }}
           onClick={() => navigate(`/community/${boardId}/${record.id}`)}
         >
-          {title}
+          {record.is_notice && <Tag color="red" style={{ marginRight: 6 }}>공지</Tag>}
+          {filterBadWords(title)}
         </span>
       ),
     },
@@ -260,6 +265,7 @@ export default function BoardPage() {
           showSizeChanger: false,
         }}
         size="middle"
+        rowClassName={(record: Post) => record.is_notice ? 'notice-row' : ''}
         onRow={(record) => ({
           onClick: (e) => {
             const target = e.target as HTMLElement;
@@ -267,7 +273,10 @@ export default function BoardPage() {
               navigate(`/community/${boardId}/${record.id}`);
             }
           },
-          style: { cursor: 'pointer' },
+          style: {
+            cursor: 'pointer',
+            background: record.is_notice ? '#fff7e6' : undefined,
+          },
         })}
       />
 
@@ -301,6 +310,11 @@ export default function BoardPage() {
               showCount
             />
           </Form.Item>
+          {user?.role === 'admin' && (
+            <Form.Item name="is_notice" valuePropName="checked">
+              <Checkbox>공지사항으로 등록</Checkbox>
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>

@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import ReportModal from '@/components/ReportModal';
+import { filterBadWords } from '@/utils/badWordFilter';
 import { useFloatingChat } from '@/contexts/FloatingChatContext';
 
 const { Text } = Typography;
@@ -547,7 +548,7 @@ export default function ChatRoom() {
                       borderBottomRightRadius: isMine ? 4 : 14,
                       borderBottomLeftRadius: isMine ? 14 : 4,
                     }}>
-                      {msg.content}
+                      {isAdmin ? msg.content : filterBadWords(msg.content)}
                       <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, textAlign: 'right' }}>
                         {new Date(msg.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                       </div>

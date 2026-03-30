@@ -3,6 +3,7 @@ import { Button, Input, Badge, Spin } from 'antd';
 import { MessageOutlined, CloseOutlined, SendOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { filterBadWords } from '@/utils/badWordFilter';
 
 interface Message {
   id: string;
@@ -223,7 +224,7 @@ export default function ChatWidget() {
                     {m.senderRole === 'admin' && (
                       <div style={{ fontSize: 10, color: '#1677ff', marginBottom: 2, fontWeight: 600 }}>관리자</div>
                     )}
-                    {m.content}
+                    {filterBadWords(m.content)}
                     <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3, textAlign: 'right' }}>
                       {new Date(m.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                     </div>

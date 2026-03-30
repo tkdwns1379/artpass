@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { filterBadWords } from '@/utils/badWordFilter';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -28,6 +29,7 @@ interface Post {
   created_at: string;
   updated_at: string;
   author_name?: string;
+  is_notice: boolean;
 }
 
 interface Comment {
@@ -308,7 +310,10 @@ export default function PostDetail() {
 
       {/* 게시글 헤더 */}
       <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, padding: '28px 32px' }}>
-        <Title level={3} style={{ marginBottom: 8 }}>{post.title}</Title>
+        <Title level={3} style={{ marginBottom: 8 }}>
+          {post.is_notice && <Tag color="red" style={{ marginRight: 8, verticalAlign: 'middle' }}>공지</Tag>}
+          {post.title}
+        </Title>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <Space size={16}>
             <Text type="secondary" style={{ fontSize: 13 }}>
@@ -324,19 +329,19 @@ export default function PostDetail() {
           </Space>
 
           <Space>
+            {isOwner && (
+              <Button size="small" icon={<EditOutlined />} onClick={openEditModal}>수정</Button>
+            )}
             {(isOwner || isAdmin) && (
-              <>
-                <Button size="small" icon={<EditOutlined />} onClick={openEditModal}>수정</Button>
-                <Popconfirm
-                  title="게시글을 삭제하시겠습니까?"
-                  onConfirm={handleDeletePost}
-                  okText="삭제"
-                  cancelText="취소"
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button size="small" icon={<DeleteOutlined />} danger>삭제</Button>
-                </Popconfirm>
-              </>
+              <Popconfirm
+                title="게시글을 삭제하시겠습니까?"
+                onConfirm={handleDeletePost}
+                okText="삭제"
+                cancelText="취소"
+                okButtonProps={{ danger: true }}
+              >
+                <Button size="small" icon={<DeleteOutlined />} danger>삭제</Button>
+              </Popconfirm>
             )}
             {user && !isOwner && (
               <Button
@@ -353,7 +358,7 @@ export default function PostDetail() {
         <Divider style={{ margin: '16px 0' }} />
 
         <Paragraph style={{ fontSize: 15, lineHeight: '1.8', whiteSpace: 'pre-wrap', minHeight: 80 }}>
-          {post.content}
+          {isAdmin ? post.content : filterBadWords(post.content)}
         </Paragraph>
 
         <Divider style={{ margin: '16px 0' }} />
@@ -403,7 +408,7 @@ export default function PostDetail() {
                         </Text>
                       </Space>
                       <Paragraph style={{ margin: '6px 0 0', fontSize: 14, whiteSpace: 'pre-wrap' }}>
-                        {comment.content}
+                        {isAdmin ? comment.content : filterBadWords(comment.content)}
                       </Paragraph>
                     </div>
                     <Space size={4} style={{ flexShrink: 0 }}>
