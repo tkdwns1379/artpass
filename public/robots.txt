@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# 관리자·채팅·마이페이지는 크롤링 제외
+Disallow: /admin
+Disallow: /mypage
+Disallow: /rooms
+Disallow: /reset-password
+
+Sitemap: https://www.designpass.co.kr/sitemap.xml

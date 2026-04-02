@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- 메인 홈 -->
+  <url>
+    <loc>https://www.designpass.co.kr/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- AI 피드백 -->
+  <url>
+    <loc>https://www.designpass.co.kr/feedback</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- 커뮤니티 -->
+  <url>
+    <loc>https://www.designpass.co.kr/community</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- 취업 가이드 - 직종별 상세 -->
+  <url>
+    <loc>https://www.designpass.co.kr/careers/fdc45473-0635-46aa-a7ae-039ef0295c46</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/58b82cda-5e84-4719-9281-6e4a742efdf4</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/86e436cd-b8f6-4d2c-95a7-f84ee1b8da0a</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/ce616bb6-4952-4fdf-a6ae-8b8d963ab5f7</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/a6bf4b34-593d-435f-a867-3f0ce46e9cf1</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/fd3faf6e-fc4d-4ef7-a1e5-15f41c428a0e</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/84e9602b-8996-4e48-97da-395d7e93fc2e</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/771cc931-a135-4ea9-9052-d51fe9d1eefc</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/03c759ef-948d-4a65-8c26-c4d8a538db49</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/13ad5c81-cbe9-4d72-9682-2b6a1f08a367</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/51d9b4db-7b4a-4e4d-818e-4caf416346b9</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/careers/1d9f14dc-f07a-4f54-badc-e66e251eef18</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 회원가입 / 로그인 -->
+  <url>
+    <loc>https://www.designpass.co.kr/register</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.designpass.co.kr/login</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+</urlset>
