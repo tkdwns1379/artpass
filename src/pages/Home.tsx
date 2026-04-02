@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Input, Row, Col, Card, Tag, Typography, Badge, Button } from 'antd';
+import { Input, Row, Col, Card, Tag, Typography, Badge, Button, Grid } from 'antd';
 import { SearchOutlined, LockOutlined, StarOutlined } from '@ant-design/icons';
+
+const { useBreakpoint } = Grid;
 import { useAuth } from '@/contexts/AuthContext';
 import { getUniversities } from '@/api/client';
 
@@ -34,6 +36,7 @@ export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const screens = useBreakpoint();
   const scrollToId = (location.state as { scrollToId?: string } | null)?.scrollToId;
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const hasSearch = debouncedSearch.trim().length > 0;
@@ -76,9 +79,9 @@ export default function Home() {
         background: 'linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         height: hasSearch ? 'auto' : 'calc(100vh - 64px)',
-        padding: hasSearch ? '40px' : undefined,
+        padding: hasSearch ? (screens.sm ? '40px' : '24px 16px') : (screens.sm ? undefined : '0 16px'),
       }}>
-        <Title level={2} style={{ marginBottom: 4, color: '#1677ff' }}>모든 디자인 입시 정보의 모음집!</Title>
+        <Title level={2} style={{ marginBottom: 4, color: '#1677ff' }}>모든 디자인 정보의 모음집!</Title>
         <Title level={3} style={{ marginTop: 0, marginBottom: 28, color: '#333', fontWeight: 400 }}>디자인패스</Title>
         <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>
           추가됐으면 하는 학교·학과는 1:1 채팅으로 문의해 주세요 😊
@@ -110,18 +113,20 @@ export default function Home() {
         >
           AI 실기 피드백 받기
         </Button>
-        <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 560 }}>
-          {universityNames.map(name => (
-            <Tag key={name} color="blue"
-              style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 20 }}
-              onClick={() => setSearch(name)}
-            >{name}</Tag>
-          ))}
-        </div>
+        {screens.sm && (
+          <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 560 }}>
+            {universityNames.map(name => (
+              <Tag key={name} color="blue"
+                style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 20 }}
+                onClick={() => setSearch(name)}
+              >{name}</Tag>
+            ))}
+          </div>
+        )}
       </div>
 
       {hasSearch && (
-        <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ padding: screens.sm ? '32px 40px' : '20px 16px', maxWidth: 1200, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
           <Title level={5} style={{ marginBottom: 16, color: '#666' }}>검색 결과 {filtered.length}개</Title>
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 0' }}>
