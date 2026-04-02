@@ -183,7 +183,7 @@ export default function Home() {
         {mode === '취업' && (
           <>
             <Text style={{ fontSize: 13, color: '#555', marginBottom: 4, display: 'block' }}>
-              디자인 전공 졸업 후 어떤 직종에서 일할 수 있을까?
+              디자인쪽으로 어떤 직종으로 일할 수 있을까?
             </Text>
             <Text style={{ fontSize: 12, color: '#888', marginBottom: 24, display: 'block' }}>
               직종별 연봉 · 취업처 · 포트폴리오 전략을 확인하세요
