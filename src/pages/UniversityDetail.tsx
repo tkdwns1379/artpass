@@ -34,6 +34,72 @@ interface University {
   competitionRate?: string;
   note?: string;
   practiceGuide?: PracticeGuide;
+  avgGrade?: string | null;
+  avgGrade5?: string | null;
+  gradeNote?: string | null;
+  avgSuneung?: string | null;
+  avgSuneungNote?: string | null;
+}
+
+const grade5Colors: Record<string, string> = {
+  '1등급': '#1677ff', '2등급': '#52c41a', '3등급': '#fa8c16', '4등급': '#ff4d4f', '5등급': '#aaa',
+};
+
+function GradeTag({ avgGrade, avgGrade5, gradeNote }: { avgGrade?: string | null; avgGrade5?: string | null; gradeNote?: string | null }) {
+  const color = avgGrade5 ? (grade5Colors[avgGrade5.replace(/~.*/, '').trim()] ?? '#888') : '#888';
+  return (
+    <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 12px' }}>
+      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+        📊 내신 등급 참고 <span style={{ color: '#ccc' }}>({gradeNote ?? '참고용'})</span>
+      </Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div>
+          <Text type="secondary" style={{ fontSize: 11 }}>9등급제 평균 </Text>
+          <Text strong style={{ fontSize: 13 }}>{avgGrade}등급</Text>
+        </div>
+        {avgGrade5 && (
+          <>
+            <Text type="secondary" style={{ fontSize: 11 }}>→</Text>
+            <div>
+              <Text type="secondary" style={{ fontSize: 11 }}>5등급제 예상 </Text>
+              <Tag color={color} style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>{avgGrade5}</Tag>
+            </div>
+          </>
+        )}
+      </div>
+      <Text type="secondary" style={{ fontSize: 10, marginTop: 4, display: 'block', color: '#bbb' }}>
+        * 실제 입결과 다를 수 있음. 참고용으로만 활용하세요.
+      </Text>
+    </div>
+  );
+}
+
+const suneungGradeColor = (grade: string) => {
+  const g = parseFloat(grade);
+  if (g <= 2.0) return '#1677ff';
+  if (g <= 3.0) return '#52c41a';
+  if (g <= 4.0) return '#fa8c16';
+  return '#ff4d4f';
+};
+
+function SuneungGradeTag({ avgSuneung, avgSuneungNote }: { avgSuneung?: string | null; avgSuneungNote?: string | null }) {
+  const color = avgSuneung ? suneungGradeColor(avgSuneung) : '#888';
+  return (
+    <div style={{ background: '#f6ffed', borderRadius: 8, padding: '10px 12px', border: '1px solid #b7eb8f' }}>
+      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+        🎯 정시 수능 등급 참고 <span style={{ color: '#ccc' }}>({avgSuneungNote ?? '참고용'})</span>
+      </Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Text type="secondary" style={{ fontSize: 11 }}>수능 평균 </Text>
+        <Tag color={color} style={{ fontSize: 13, fontWeight: 700, margin: 0, padding: '2px 10px' }}>
+          {avgSuneung}등급
+        </Tag>
+      </div>
+      <Text type="secondary" style={{ fontSize: 10, marginTop: 4, display: 'block', color: '#bbb' }}>
+        * 실제 입결과 다를 수 있음. 참고용으로만 활용하세요.
+      </Text>
+    </div>
+  );
 }
 
 function LockBanner({ onRegister }: { onRegister: () => void }) {
@@ -176,6 +242,18 @@ export default function UniversityDetail() {
                   <Alert message={uni.note} type="info" showIcon style={{ fontSize: 12 }} />
                 </>
               )}
+              {uni.avgGrade && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <GradeTag avgGrade={uni.avgGrade} avgGrade5={uni.avgGrade5} gradeNote={uni.gradeNote} />
+                </>
+              )}
+              {uni.avgSuneung && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <SuneungGradeTag avgSuneung={uni.avgSuneung} avgSuneungNote={uni.avgSuneungNote} />
+                </>
+              )}
             </Card>
           ) : (
             <Card
@@ -193,6 +271,16 @@ export default function UniversityDetail() {
               <Button type="primary" block onClick={() => navigate('/register')}>
                 무료 회원가입으로 확인하기
               </Button>
+              {uni.avgGrade && (
+                <div style={{ marginTop: 12 }}>
+                  <GradeTag avgGrade={uni.avgGrade} avgGrade5={uni.avgGrade5} gradeNote={uni.gradeNote} />
+                </div>
+              )}
+              {uni.avgSuneung && (
+                <div style={{ marginTop: 12 }}>
+                  <SuneungGradeTag avgSuneung={uni.avgSuneung} avgSuneungNote={uni.avgSuneungNote} />
+                </div>
+              )}
             </Card>
           )}
         </Col>

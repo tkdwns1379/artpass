@@ -62,7 +62,7 @@ export default function ChatRoom() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const joinedRef = useRef(false);
   const sessionTokenRef = useRef<string | null>(null);
-  const [profileMap, setProfileMap] = useState<Record<string, { name: string; role: string }>>({});
+  const [profileMap, setProfileMap] = useState<Record<string, { name: string; role: string; avatarUrl?: string }>>({});
 
   // 세션 토큰을 ref에 저장 (pagehide 핸들러에서 동기적으로 접근하기 위해)
   useEffect(() => {
@@ -79,10 +79,10 @@ export default function ChatRoom() {
     if (ids.length === 0) return {};
     const { data } = await supabase
       .from('profiles')
-      .select('id, name, role')
+      .select('id, name, role, avatar_url')
       .in('id', ids);
-    const map: Record<string, { name: string; role: string }> = {};
-    (data ?? []).forEach((p) => { map[p.id] = { name: p.name, role: p.role }; });
+    const map: Record<string, { name: string; role: string; avatarUrl?: string }> = {};
+    (data ?? []).forEach((p) => { map[p.id] = { name: p.name, role: p.role, avatarUrl: p.avatar_url ?? undefined }; });
     setProfileMap((prev) => ({ ...prev, ...map }));
     return map;
   }
@@ -99,7 +99,7 @@ export default function ChatRoom() {
     setFloatingRoom({ id: data.id, name: data.name });
   }
 
-  async function fetchMembers(map?: Record<string, { name: string; role: string }>) {
+  async function fetchMembers(map?: Record<string, { name: string; role: string; avatarUrl?: string }>) {
     const { data } = await supabase
       .from('room_members')
       .select('user_id')
@@ -112,10 +112,10 @@ export default function ChatRoom() {
     if (missing.length > 0) {
       const { data: newProfiles } = await supabase
         .from('profiles')
-        .select('id, name, role')
+        .select('id, name, role, avatar_url')
         .in('id', missing);
       const newMap: typeof profiles = { ...profiles };
-      (newProfiles ?? []).forEach((p) => { newMap[p.id] = { name: p.name, role: p.role }; });
+      (newProfiles ?? []).forEach((p) => { newMap[p.id] = { name: p.name, role: p.role, avatarUrl: p.avatar_url ?? undefined }; });
       setProfileMap(newMap);
       merged = newMap;
     }
@@ -129,7 +129,7 @@ export default function ChatRoom() {
     );
   }
 
-  async function fetchMessages(map?: Record<string, { name: string; role: string }>, since?: string) {
+  async function fetchMessages(map?: Record<string, { name: string; role: string; avatarUrl?: string }>, since?: string) {
     let query = supabase
       .from('room_messages')
       .select('*')
@@ -145,9 +145,9 @@ export default function ChatRoom() {
     let profiles = map ?? profileMap;
     const missing = ids.filter((id) => !profiles[id]);
     if (missing.length > 0) {
-      const { data: newP } = await supabase.from('profiles').select('id, name, role').in('id', missing);
+      const { data: newP } = await supabase.from('profiles').select('id, name, role, avatar_url').in('id', missing);
       const newMap = { ...profiles };
-      (newP ?? []).forEach((p) => { newMap[p.id] = { name: p.name, role: p.role }; });
+      (newP ?? []).forEach((p) => { newMap[p.id] = { name: p.name, role: p.role, avatarUrl: p.avatar_url ?? undefined }; });
       setProfileMap(newMap);
       profiles = newMap;
     }
@@ -243,9 +243,9 @@ export default function ChatRoom() {
               return prev;
             });
             if (!senderName) {
-              const { data } = await supabase.from('profiles').select('id, name, role').eq('id', msg.user_id).single();
+              const { data } = await supabase.from('profiles').select('id, name, role, avatar_url').eq('id', msg.user_id).single();
               if (data) {
-                setProfileMap((prev) => ({ ...prev, [data.id]: { name: data.name, role: data.role } }));
+                setProfileMap((prev) => ({ ...prev, [data.id]: { name: data.name, role: data.role, avatarUrl: data.avatar_url ?? undefined } }));
                 senderName = data.name;
               }
             }
@@ -531,7 +531,7 @@ export default function ChatRoom() {
                   }}
                 >
                   {!isMine && (
-                    <Avatar size={28} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
+                    <Avatar size={28} src={msg.user_id ? profileMap[msg.user_id]?.avatarUrl : undefined} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
                   )}
                   <div style={{ maxWidth: '65%' }}>
                     {!isMine && (
@@ -628,10 +628,10 @@ export default function ChatRoom() {
                     trigger="click"
                     placement="right"
                   >
-                    <Avatar size={24} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
+                    <Avatar size={24} src={profileMap[member.user_id]?.avatarUrl} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
                   </Popover>
                 ) : (
-                  <Avatar size={24} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
+                  <Avatar size={24} src={profileMap[member.user_id]?.avatarUrl} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -725,10 +725,10 @@ export default function ChatRoom() {
                   trigger="click"
                   placement="left"
                 >
-                  <Avatar size={32} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
+                  <Avatar size={32} src={profileMap[member.user_id]?.avatarUrl} icon={<UserOutlined />} style={{ background: isMemberAdmin ? '#ff4d4f' : isMemberOwner ? '#faad14' : '#1677ff', flexShrink: 0, cursor: 'pointer' }} />
                 </Popover>
               ) : (
-                <Avatar size={32} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
+                <Avatar size={32} src={profileMap[member.user_id]?.avatarUrl} icon={<UserOutlined />} style={{ background: '#1677ff', flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

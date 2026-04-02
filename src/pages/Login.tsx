@@ -1,7 +1,8 @@
-import { Form, Input, Button, Card, Typography, Divider, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, Divider, message, Modal } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 
 const { Title, Text } = Typography;
@@ -10,6 +11,27 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
+  async function handleResetPassword() {
+    if (!resetEmail) { message.warning('이메일을 입력하세요.'); return; }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: 'https://www.designpass.co.kr/reset-password',
+      });
+      if (error) throw new Error(error.message);
+      message.success('비밀번호 재설정 링크를 이메일로 발송했습니다.');
+      setResetModalOpen(false);
+      setResetEmail('');
+    } catch (e: unknown) {
+      message.error((e as Error).message || '발송에 실패했습니다.');
+    } finally {
+      setResetLoading(false);
+    }
+  }
 
   async function handleSubmit(values: { email: string; password: string }) {
     setLoading(true);
@@ -43,9 +65,14 @@ export default function Login() {
           <Form.Item name="email" rules={[{ required: true, type: 'email', message: '이메일을 입력하세요' }]}>
             <Input prefix={<UserOutlined />} placeholder="이메일" size="large" />
           </Form.Item>
-          <Form.Item name="password" rules={[{ required: true, message: '비밀번호를 입력하세요' }]}>
+          <Form.Item name="password" style={{ marginBottom: 8 }} rules={[{ required: true, message: '비밀번호를 입력하세요' }]}>
             <Input.Password prefix={<LockOutlined />} placeholder="비밀번호" size="large" />
           </Form.Item>
+          <div style={{ textAlign: 'right', marginBottom: 16 }}>
+            <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setResetModalOpen(true)}>
+              비밀번호를 잊으셨나요?
+            </Button>
+          </div>
           <Button type="primary" htmlType="submit" block size="large" loading={loading}>
             로그인
           </Button>
@@ -54,6 +81,30 @@ export default function Login() {
         <Divider plain><Text type="secondary" style={{ fontSize: 12 }}>아직 회원이 아니신가요?</Text></Divider>
         <Button block onClick={() => navigate('/register')}>무료 회원가입</Button>
       </Card>
+
+      <Modal
+        title="비밀번호 찾기"
+        open={resetModalOpen}
+        onOk={handleResetPassword}
+        onCancel={() => { setResetModalOpen(false); setResetEmail(''); }}
+        okText="재설정 링크 발송"
+        cancelText="취소"
+        confirmLoading={resetLoading}
+      >
+        <div style={{ marginTop: 16 }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            가입 시 사용한 이메일을 입력하시면 비밀번호 재설정 링크를 보내드립니다.
+          </Text>
+          <Input
+            prefix={<MailOutlined />}
+            placeholder="이메일"
+            size="large"
+            value={resetEmail}
+            onChange={e => setResetEmail(e.target.value)}
+            onPressEnter={handleResetPassword}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

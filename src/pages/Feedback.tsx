@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Button, Select, Typography, Upload, Spin, Alert, Divider, Tag,
+  Card, Button, Select, Typography, Spin, Alert, Divider, Tag,
   Tabs, Radio, Input,
 } from 'antd';
 import {
   UploadOutlined, SendOutlined, ArrowLeftOutlined, StarFilled,
   TrophyOutlined, BulbOutlined, BarChartOutlined, CompassOutlined, CloseCircleFilled,
+  SaveOutlined, CheckCircleFilled,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,7 @@ import {
   callFeedbackRecommend,
   callFeedbackAcceptance,
   callFeedbackAdvice,
+  saveFeedbackLog,
 } from '@/api/client';
 
 const { Title, Text, Paragraph } = Typography;
@@ -74,17 +76,21 @@ function MultiImageUpload({
   label?: string;
   optional?: boolean;
 }) {
-  const canAdd = imageFiles.length < 4;
+  const canAdd = imageFiles.length < 1;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onAdd(file);
+    if (inputRef.current) inputRef.current.value = '';
+  };
 
   return (
     <div style={{ marginBottom: 20 }}>
       <Text strong style={{ display: 'block', marginBottom: 8 }}>
         {label}
         {optional && (
-          <Text type="secondary" style={{ fontWeight: 'normal', marginLeft: 8, fontSize: 13 }}>(선택 — 최대 4장)</Text>
-        )}
-        {!optional && (
-          <Text type="secondary" style={{ fontWeight: 'normal', marginLeft: 8, fontSize: 13 }}>(최대 4장)</Text>
+          <Text type="secondary" style={{ fontWeight: 'normal', marginLeft: 8, fontSize: 13 }}>(선택)</Text>
         )}
       </Text>
 
@@ -105,40 +111,40 @@ function MultiImageUpload({
                   background: '#fff', borderRadius: '50%',
                 }}
               />
-              <div style={{
-                position: 'absolute', bottom: 2, left: 2,
-                background: 'rgba(0,0,0,0.45)', color: '#fff',
-                fontSize: 11, borderRadius: 3, padding: '0 4px',
-              }}>
-                {idx + 1}번
-              </div>
             </div>
           ))}
         </div>
       )}
 
-      {canAdd && (
-        <Upload.Dragger
-          accept="image/*"
-          showUploadList={false}
-          beforeUpload={onAdd}
-          style={{ padding: '8px 0' }}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleInputChange}
+      />
+
+      {canAdd ? (
+        <div
+          onClick={() => inputRef.current?.click()}
+          style={{
+            border: '1px dashed #1677ff', borderRadius: 8, padding: '20px 0',
+            textAlign: 'center', cursor: 'pointer', background: '#fafeff',
+            userSelect: 'none',
+          }}
         >
-          <div>
-            <UploadOutlined style={{ fontSize: 28, color: '#1677ff', marginBottom: 6 }} />
-            <p style={{ margin: 0, fontSize: 13 }}>클릭하거나 파일을 드래그하세요</p>
-            <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 12 }}>
-              JPG, PNG, WEBP / 최대 10MB · {imageFiles.length}/4장
-            </p>
-          </div>
-        </Upload.Dragger>
-      )}
-      {!canAdd && (
+          <UploadOutlined style={{ fontSize: 28, color: '#1677ff', marginBottom: 6 }} />
+          <p style={{ margin: 0, fontSize: 13, color: '#333' }}>클릭하여 이미지 선택</p>
+          <p style={{ margin: '4px 0 0', color: '#aaa', fontSize: 12 }}>
+            JPG, PNG, WEBP / 최대 10MB
+          </p>
+        </div>
+      ) : (
         <div style={{
           padding: '10px 16px', background: '#f5f5f5', borderRadius: 6,
           fontSize: 12, color: '#888', textAlign: 'center',
         }}>
-          최대 4장 업로드되었습니다. 이미지를 제거하면 추가할 수 있습니다.
+          이미지가 업로드되었습니다. 변경하려면 위 이미지를 삭제 후 다시 업로드하세요.
         </div>
       )}
     </div>
@@ -177,6 +183,19 @@ export default function FeedbackPage() {
   const [acceptanceDetail, setAcceptanceDetail] = useState('');
   const [acceptanceLoading, setAcceptanceLoading] = useState(false);
   const [acceptanceError, setAcceptanceError] = useState('');
+
+  // 일일 잔여 횟수
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  // 저장 상태
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [recommendSaving, setRecommendSaving] = useState(false);
+  const [recommendSaved, setRecommendSaved] = useState(false);
+  const [acceptanceSaving, setAcceptanceSaving] = useState(false);
+  const [acceptanceSaved, setAcceptanceSaved] = useState(false);
+  const [adviceSaving, setAdviceSaving] = useState(false);
+  const [adviceSaved, setAdviceSaved] = useState(false);
 
   // Tab 4: 입시조언 (별도 이미지)
   const [adviceImageFiles, setAdviceImageFiles] = useState<File[]>([]);
@@ -244,7 +263,7 @@ export default function FeedbackPage() {
 
   // 공통 이미지 추가/제거
   const handleImageAdd = (file: File) => {
-    if (imageFiles.length >= 4) return false;
+    if (imageFiles.length >= 1) return false;
     const reader = new FileReader();
     reader.onload = e => {
       setImageFiles(prev => [...prev, file]);
@@ -269,7 +288,7 @@ export default function FeedbackPage() {
 
   // 입시조언 이미지 추가/제거
   const handleAdviceImageAdd = (file: File) => {
-    if (adviceImageFiles.length >= 4) return false;
+    if (adviceImageFiles.length >= 1) return false;
     const reader = new FileReader();
     reader.onload = e => {
       setAdviceImageFiles(prev => [...prev, file]);
@@ -301,6 +320,8 @@ export default function FeedbackPage() {
       });
       const res = await callFeedback(formData);
       setFeedback(res.feedback);
+      setFeedbackSaved(false);
+      if (res.remaining !== undefined) setRemaining(res.remaining);
     } catch (e: unknown) {
       setFeedbackError((e as Error).message || '피드백 생성 중 오류가 발생했습니다.');
     } finally {
@@ -315,6 +336,8 @@ export default function FeedbackPage() {
       const formData = buildFormData(imageFiles, { additionalNote: recommendNote });
       const res = await callFeedbackRecommend(formData);
       setRecommendation(res.recommendation);
+      setRecommendSaved(false);
+      if (res.remaining !== undefined) setRemaining(res.remaining);
     } catch (e: unknown) {
       setRecommendError((e as Error).message || '대학 추천 중 오류가 발생했습니다.');
     } finally {
@@ -340,6 +363,8 @@ export default function FeedbackPage() {
       const res = await callFeedbackAcceptance(formData);
       setAcceptanceRate(res.rate);
       setAcceptanceDetail(res.detail);
+      setAcceptanceSaved(false);
+      if (res.remaining !== undefined) setRemaining(res.remaining);
     } catch (e: unknown) {
       setAcceptanceError((e as Error).message || '합격률 분석 중 오류가 발생했습니다.');
     } finally {
@@ -357,6 +382,8 @@ export default function FeedbackPage() {
       if (adviceNote) formData.append('additionalNote', adviceNote);
       const res = await callFeedbackAdvice(formData);
       setAdvice(res.advice);
+      setAdviceSaved(false);
+      if (res.remaining !== undefined) setRemaining(res.remaining);
     } catch (e: unknown) {
       setAdviceError((e as Error).message || '조언을 가져오는 중 오류가 발생했습니다.');
     } finally {
@@ -379,6 +406,37 @@ export default function FeedbackPage() {
         {text}<br />
         <span style={{ fontSize: 12 }}>30초 ~ 1분 소요됩니다.</span>
       </p>
+    </div>
+  );
+
+  const SaveButton = ({
+    onSave, saving, saved,
+  }: { onSave: () => void; saving: boolean; saved: boolean }) => (
+    <div style={{
+      marginTop: 20, padding: '14px 16px',
+      background: saved ? '#f6ffed' : '#fafafa',
+      border: `1px solid ${saved ? '#b7eb8f' : '#e0e0e0'}`,
+      borderRadius: 10,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    }}>
+      <div>
+        <Text style={{ fontSize: 13, fontWeight: 600, color: saved ? '#389e0d' : '#333' }}>
+          {saved ? <><CheckCircleFilled style={{ marginRight: 6 }} />마이페이지에 저장됨</> : '마이페이지에 저장하기'}
+        </Text>
+        <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+          1개만 저장 가능 · 새로 저장하면 기존 내용이 교체됩니다
+        </div>
+      </div>
+      <Button
+        type={saved ? 'default' : 'primary'}
+        icon={saved ? <CheckCircleFilled /> : <SaveOutlined />}
+        loading={saving}
+        disabled={saved}
+        onClick={onSave}
+        size="small"
+      >
+        {saved ? '저장 완료' : '저장'}
+      </Button>
     </div>
   );
 
@@ -450,6 +508,23 @@ export default function FeedbackPage() {
               <div style={{ lineHeight: 1.8 }}>
                 <ReactMarkdown>{feedback}</ReactMarkdown>
               </div>
+              <SaveButton
+                saved={feedbackSaved}
+                saving={feedbackSaving}
+                onSave={async () => {
+                  setFeedbackSaving(true);
+                  try {
+                    await saveFeedbackLog({
+                      userId: user!.id,
+                      type: '실기피드백',
+                      universityName: feedbackUni ? `${feedbackUni.name} - ${feedbackUni.department}` : null,
+                      content: feedback,
+                    });
+                    setFeedbackSaved(true);
+                  } catch { /* ignore */ }
+                  setFeedbackSaving(false);
+                }}
+              />
             </div>
           )}
         </div>
@@ -498,6 +573,18 @@ export default function FeedbackPage() {
               <div style={{ lineHeight: 1.8 }}>
                 <ReactMarkdown>{recommendation}</ReactMarkdown>
               </div>
+              <SaveButton
+                saved={recommendSaved}
+                saving={recommendSaving}
+                onSave={async () => {
+                  setRecommendSaving(true);
+                  try {
+                    await saveFeedbackLog({ userId: user!.id, type: '대학추천', content: recommendation });
+                    setRecommendSaved(true);
+                  } catch { /* ignore */ }
+                  setRecommendSaving(false);
+                }}
+              />
             </div>
           )}
         </div>
@@ -587,6 +674,24 @@ export default function FeedbackPage() {
               <div style={{ lineHeight: 1.8, marginTop: 16 }}>
                 <ReactMarkdown>{acceptanceDetail}</ReactMarkdown>
               </div>
+              <SaveButton
+                saved={acceptanceSaved}
+                saving={acceptanceSaving}
+                onSave={async () => {
+                  setAcceptanceSaving(true);
+                  try {
+                    await saveFeedbackLog({
+                      userId: user!.id,
+                      type: '합격분석',
+                      universityName: acceptanceUni ? `${acceptanceUni.name} - ${acceptanceUni.department}` : null,
+                      content: acceptanceDetail,
+                      meta: { rate: acceptanceRate, admissionType },
+                    });
+                    setAcceptanceSaved(true);
+                  } catch { /* ignore */ }
+                  setAcceptanceSaving(false);
+                }}
+              />
             </div>
           )}
         </div>
@@ -660,6 +765,23 @@ export default function FeedbackPage() {
               <div style={{ lineHeight: 1.8 }}>
                 <ReactMarkdown>{advice}</ReactMarkdown>
               </div>
+              <SaveButton
+                saved={adviceSaved}
+                saving={adviceSaving}
+                onSave={async () => {
+                  setAdviceSaving(true);
+                  try {
+                    await saveFeedbackLog({
+                      userId: user!.id,
+                      type: '입시조언',
+                      content: advice,
+                      meta: { question: adviceQuestion.slice(0, 200) },
+                    });
+                    setAdviceSaved(true);
+                  } catch { /* ignore */ }
+                  setAdviceSaving(false);
+                }}
+              />
             </div>
           )}
         </div>
@@ -678,7 +800,17 @@ export default function FeedbackPage() {
         홈으로
       </Button>
 
-      <Title level={3} style={{ marginBottom: 4 }}>실기 분석 서비스</Title>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+        <Title level={3} style={{ margin: 0 }}>실기 분석 서비스</Title>
+        {remaining !== null && remaining < 999 && (
+          <Tag
+            color={remaining === 0 ? 'red' : remaining === 1 ? 'orange' : 'blue'}
+            style={{ fontSize: 13, padding: '4px 12px', borderRadius: 20 }}
+          >
+            오늘 남은 횟수 {remaining}/3
+          </Tag>
+        )}
+      </div>
       <Paragraph type="secondary" style={{ marginBottom: 24 }}>
         AI가 분석한 결과입니다. 참고 자료로 활용하되, 실제 입시 결정은 담당 선생님과 상담하세요.
       </Paragraph>

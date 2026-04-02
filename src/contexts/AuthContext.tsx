@@ -12,6 +12,12 @@ interface UserProfile {
   isPremium: boolean
   location: string | null
   userNumber: number | null
+  avatarUrl: string | null
+  admissionType: 'susi' | 'jeongsi' | null
+  avgGrade: string | null
+  targetUniversity: string | null
+  acceptanceRate: number | null
+  nameVisibility: 'all' | 'friend' | 'none'
 }
 
 interface AuthContextType {
@@ -60,22 +66,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPremium: data?.is_premium ?? false,
       location: data?.location ?? null,
       userNumber: data?.user_number ?? null,
+      avatarUrl: data?.avatar_url ?? null,
+      admissionType: data?.admission_type ?? null,
+      avgGrade: data?.avg_grade ?? null,
+      targetUniversity: data?.target_university ?? null,
+      acceptanceRate: data?.acceptance_rate ?? null,
+      nameVisibility: data?.name_visibility ?? 'friend',
     })
   }
 
   useEffect(() => {
+    let currentUserId: string | null = null
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) await loadProfile(session.user)
-      else setUser(null)
+      if (session?.user) {
+        currentUserId = session.user.id
+        await loadProfile(session.user)
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) loadProfile(session.user)
-      else setUser(null)
+      if (session?.user) {
+        currentUserId = session.user.id
+        loadProfile(session.user)
+      } else {
+        currentUserId = null
+        setUser(null)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    // 프로필 실시간 구독 — 추방/프리미엄 해제 즉시 반영
+    const profileSub = supabase
+      .channel('profile-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        async (payload) => {
+          if (payload.new.id !== currentUserId) return
+          const updated = payload.new as Record<string, unknown>
+
+          // 추방 → 즉시 로그아웃
+          if (updated.is_banned) {
+            await supabase.auth.signOut()
+            setUser(null)
+            alert('관리자에 의해 계정이 제한되었습니다.')
+            window.location.href = '/login'
+            return
+          }
+
+          // 프로필 변경사항 즉시 반영 (프리미엄 해제 포함)
+          const { data: supabaseUser } = await supabase.auth.getUser()
+          if (supabaseUser.user) await loadProfile(supabaseUser.user)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+      supabase.removeChannel(profileSub)
+    }
   }, [])
 
   async function login(email: string, password: string) {

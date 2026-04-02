@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Slider, Typography,
-  Empty, Spin, message, Badge, Tooltip,
+  Empty, Spin, message, Badge, Tooltip, Avatar, Divider,
 } from 'antd';
-import { PlusOutlined, TeamOutlined, LoginOutlined, LockOutlined, StarFilled } from '@ant-design/icons';
+import { PlusOutlined, TeamOutlined, LoginOutlined, LockOutlined, StarFilled, SearchOutlined, UserAddOutlined, UserOutlined, TrophyOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +30,21 @@ const PRESET_TAGS = [
   '수시', '정시', '합격후기', '정보공유', '질문있어요',
 ];
 
+interface PublicProfile {
+  id: string;
+  name: string;
+  role: string;
+  realName: string | null;
+  avatarUrl: string | null;
+  admissionType: string | null;
+  avgGrade: string | null;
+  targetUniversity: string | null;
+  acceptanceRate: number | null;
+  nameVisibility: string;
+  friendshipStatus: 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+  friendshipId: string | null;
+}
+
 export default function ChatRooms() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -39,6 +54,12 @@ export default function ChatRooms() {
   const [creating, setCreating] = useState(false);
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [form] = Form.useForm();
+
+  // 닉네임 검색
+  const [nicknameSearch, setNicknameSearch] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [profileModal, setProfileModal] = useState<PublicProfile | null>(null);
+  const [friendLoading, setFriendLoading] = useState(false);
 
   async function fetchRooms() {
     const { data, error } = await supabase
@@ -134,6 +155,92 @@ export default function ChatRooms() {
     }
   }
 
+  async function handleNicknameSearch() {
+    if (!nicknameSearch.trim()) return;
+    if (!user) { message.warning('로그인이 필요합니다.'); return; }
+    setSearching(true);
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('id, name, real_name, role, avatar_url, admission_type, avg_grade, target_university, acceptance_rate, name_visibility')
+        .eq('name', nicknameSearch.trim())
+        .single();
+
+      if (error || !profileData) {
+        message.warning('해당 닉네임의 사용자를 찾을 수 없습니다.');
+        return;
+      }
+
+      if (profileData.id === user.id) {
+        message.info('본인의 닉네임입니다.');
+        return;
+      }
+
+      // 친구 관계 조회
+      const { data: fship } = await supabase
+        .from('friendships')
+        .select('id, requester_id, addressee_id, status')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .or(`requester_id.eq.${profileData.id},addressee_id.eq.${profileData.id}`)
+        .single();
+
+      let friendshipStatus: PublicProfile['friendshipStatus'] = 'none';
+      let friendshipId: string | null = null;
+
+      if (fship) {
+        const isMyRequest = fship.requester_id === user.id;
+        const isRelated =
+          (fship.requester_id === user.id && fship.addressee_id === profileData.id) ||
+          (fship.requester_id === profileData.id && fship.addressee_id === user.id);
+
+        if (isRelated) {
+          friendshipId = fship.id;
+          if (fship.status === 'accepted') friendshipStatus = 'accepted';
+          else if (isMyRequest) friendshipStatus = 'pending_sent';
+          else friendshipStatus = 'pending_received';
+        }
+      }
+
+      setProfileModal({
+        id: profileData.id,
+        name: profileData.name,
+        realName: profileData.real_name ?? null,
+        role: profileData.role,
+        avatarUrl: profileData.avatar_url,
+        admissionType: profileData.admission_type,
+        avgGrade: profileData.avg_grade,
+        targetUniversity: profileData.target_university,
+        acceptanceRate: profileData.acceptance_rate,
+        nameVisibility: profileData.name_visibility ?? 'friend',
+        friendshipStatus,
+        friendshipId,
+      });
+    } catch {
+      message.error('검색 중 오류가 발생했습니다.');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleFriendRequest() {
+    if (!user || !profileModal) return;
+    setFriendLoading(true);
+    try {
+      const { error } = await supabase.from('friendships').insert({
+        requester_id: user.id,
+        addressee_id: profileModal.id,
+        status: 'pending',
+      });
+      if (error) throw new Error(error.message);
+      setProfileModal(prev => prev ? { ...prev, friendshipStatus: 'pending_sent', friendshipId: null } : null);
+      message.success('친구 요청을 보냈습니다.');
+    } catch (e: unknown) {
+      message.error((e as Error).message || '친구 요청에 실패했습니다.');
+    } finally {
+      setFriendLoading(false);
+    }
+  }
+
   async function handleEnter(room: Room) {
     if (!user) { message.warning('로그인이 필요합니다.'); return; }
     navigate(`/rooms/${room.id}`);
@@ -159,6 +266,23 @@ export default function ChatRooms() {
           </Button>
         )}
       </div>
+
+      {/* 닉네임 검색 */}
+      {user && (
+        <div style={{ marginBottom: 20 }}>
+          <Input.Search
+            placeholder="닉네임으로 검색"
+            value={nicknameSearch}
+            onChange={(e) => setNicknameSearch(e.target.value)}
+            onSearch={handleNicknameSearch}
+            onPressEnter={handleNicknameSearch}
+            loading={searching}
+            enterButton={<><SearchOutlined /> 검색</>}
+            style={{ maxWidth: 320 }}
+            allowClear
+          />
+        </div>
+      )}
 
       {/* 태그 필터 */}
       <div style={{ marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -259,6 +383,124 @@ export default function ChatRooms() {
           })}
         </div>
       )}
+
+      {/* 닉네임 검색 프로필 모달 */}
+      <Modal
+        open={!!profileModal}
+        onCancel={() => setProfileModal(null)}
+        footer={null}
+        width={400}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Avatar
+              size={40}
+              src={profileModal?.avatarUrl}
+              icon={!profileModal?.avatarUrl ? <UserOutlined /> : undefined}
+              style={{ backgroundColor: '#1677ff', flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{profileModal?.name}</div>
+              {profileModal?.role === 'admin' && <Tag color="gold" style={{ margin: 0, fontSize: 11 }}>관리자</Tag>}
+            </div>
+          </div>
+        }
+      >
+        {profileModal && (() => {
+          const isAccepted = profileModal.friendshipStatus === 'accepted';
+          const isAdmin = user?.role === 'admin';
+          const canViewInfo = isAdmin ||
+            profileModal.nameVisibility === 'all' ||
+            (profileModal.nameVisibility === 'friend' && isAccepted);
+
+          return (
+            <div>
+              {/* 이름 */}
+              {canViewInfo && profileModal.realName ? (
+                <div style={{ background: '#f0f5ff', borderRadius: 8, padding: '8px 14px', marginBottom: 12, fontSize: 14 }}>
+                  <span style={{ color: '#888', fontSize: 12 }}>이름 </span>
+                  <span style={{ fontWeight: 600 }}>{profileModal.realName}</span>
+                </div>
+              ) : !canViewInfo ? (
+                <div style={{ background: '#fafafa', borderRadius: 8, padding: '8px 14px', marginBottom: 12, fontSize: 13, color: '#aaa' }}>
+                  {profileModal.nameVisibility === 'none' ? '🔒 비공개 프로필입니다.' : '🔒 친구만 볼 수 있는 프로필입니다.'}
+                </div>
+              ) : null}
+
+              {/* 입시 정보 */}
+              {canViewInfo && (profileModal.admissionType || profileModal.avgGrade || profileModal.targetUniversity || profileModal.acceptanceRate != null) ? (
+                <div style={{ background: '#f9f9f9', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#888', marginBottom: 10 }}>입시 정보</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {profileModal.admissionType && (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>전형</div>
+                        <Tag color="blue" style={{ marginTop: 2 }}>
+                          {profileModal.admissionType === 'susi' ? '수시' : '정시'}
+                        </Tag>
+                      </div>
+                    )}
+                    {profileModal.avgGrade && (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>평균 등급</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{profileModal.avgGrade}</div>
+                      </div>
+                    )}
+                    {profileModal.targetUniversity && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>목표 대학</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{profileModal.targetUniversity}</div>
+                      </div>
+                    )}
+                    {profileModal.acceptanceRate != null && (
+                      <div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>AI 합격률</div>
+                        <Tag
+                          color={profileModal.acceptanceRate >= 70 ? 'success' : profileModal.acceptanceRate >= 45 ? 'warning' : 'error'}
+                          icon={<TrophyOutlined />}
+                          style={{ marginTop: 2, fontWeight: 700 }}
+                        >
+                          {profileModal.acceptanceRate}%
+                        </Tag>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : canViewInfo ? (
+                <div style={{ textAlign: 'center', color: '#aaa', fontSize: 13, padding: '8px 0', marginBottom: 8 }}>
+                  아직 입시 정보를 입력하지 않았습니다.
+                </div>
+              ) : null}
+
+              <Divider style={{ margin: '12px 0' }} />
+
+              {/* 친구 관계 버튼 */}
+              {profileModal.friendshipStatus === 'accepted' ? (
+                <Button block icon={<CheckOutlined />} disabled style={{ background: '#f6ffed', borderColor: '#b7eb8f', color: '#389e0d' }}>
+                  친구
+                </Button>
+              ) : profileModal.friendshipStatus === 'pending_sent' ? (
+                <Button block icon={<ClockCircleOutlined />} disabled>
+                  친구 요청 보냄
+                </Button>
+              ) : profileModal.friendshipStatus === 'pending_received' ? (
+                <Button block type="default" disabled>
+                  친구 요청 받음 (마이페이지에서 수락)
+                </Button>
+              ) : (
+                <Button
+                  block
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  loading={friendLoading}
+                  onClick={handleFriendRequest}
+                >
+                  친구 추가
+                </Button>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* 방 만들기 모달 */}
       <Modal
