@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Table, Button, Modal, Form, Input, Typography,
-  Space, message, Breadcrumb, Tag, Checkbox,
+  Space, message, Breadcrumb, Tag, Checkbox, Grid, Pagination,
 } from 'antd';
 import {
   PlusOutlined, EyeOutlined, LikeOutlined,
@@ -11,6 +11,8 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { filterBadWords } from '@/utils/badWordFilter';
+
+const { useBreakpoint } = Grid;
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -39,6 +41,7 @@ export default function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const screens = useBreakpoint();
 
   const [board, setBoard] = useState<Board | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -252,33 +255,84 @@ export default function BoardPage() {
         </div>
       )}
 
-      <Table
-        dataSource={posts}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
-          total,
-          onChange: (p) => setPage(p),
-          showSizeChanger: false,
-        }}
-        size="middle"
-        rowClassName={(record: Post) => record.is_notice ? 'notice-row' : ''}
-        onRow={(record) => ({
-          onClick: (e) => {
-            const target = e.target as HTMLElement;
-            if (target.tagName !== 'SPAN' || !target.style.cursor) {
-              navigate(`/community/${boardId}/${record.id}`);
-            }
-          },
-          style: {
-            cursor: 'pointer',
-            background: record.is_notice ? '#fff7e6' : undefined,
-          },
-        })}
-      />
+      {screens.sm ? (
+        <Table
+          dataSource={posts}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            current: page,
+            pageSize: PAGE_SIZE,
+            total,
+            onChange: (p) => setPage(p),
+            showSizeChanger: false,
+          }}
+          size="middle"
+          rowClassName={(record: Post) => record.is_notice ? 'notice-row' : ''}
+          onRow={(record) => ({
+            onClick: (e) => {
+              const target = e.target as HTMLElement;
+              if (target.tagName !== 'SPAN' || !target.style.cursor) {
+                navigate(`/community/${boardId}/${record.id}`);
+              }
+            },
+            style: {
+              cursor: 'pointer',
+              background: record.is_notice ? '#fff7e6' : undefined,
+            },
+          })}
+        />
+      ) : (
+        /* 모바일 리스트 */
+        <div>
+          {posts.map(post => (
+            <div
+              key={post.id}
+              onClick={() => navigate(`/community/${boardId}/${post.id}`)}
+              style={{
+                padding: '14px 4px',
+                borderBottom: '1px solid #f0f0f0',
+                cursor: 'pointer',
+                background: post.is_notice ? '#fff7e6' : undefined,
+              }}
+            >
+              <div style={{ marginBottom: 6 }}>
+                {post.is_notice && <Tag color="red" style={{ marginRight: 6, fontSize: 11 }}>공지</Tag>}
+                <Text strong style={{ fontSize: 14, lineHeight: 1.5 }}>
+                  {filterBadWords(post.title)}
+                </Text>
+              </div>
+              <Space size={10} style={{ flexWrap: 'wrap' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{post.author_name}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>{post.created_at?.slice(0, 10)}</Text>
+                <Space size={4}>
+                  <EyeOutlined style={{ fontSize: 11, color: '#bbb' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>{post.view_count}</Text>
+                </Space>
+                <Space size={4}>
+                  <MessageOutlined style={{ fontSize: 11, color: '#bbb' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>{post.comment_count}</Text>
+                </Space>
+                <Space size={4}>
+                  <LikeOutlined style={{ fontSize: 11, color: '#bbb' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>{post.like_count}</Text>
+                </Space>
+              </Space>
+            </div>
+          ))}
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <Pagination
+              current={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+              onChange={(p) => setPage(p)}
+              showSizeChanger={false}
+              size="small"
+            />
+          </div>
+        </div>
+      )}
 
       <Modal
         title="글쓰기"
