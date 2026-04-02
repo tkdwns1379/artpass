@@ -18,6 +18,10 @@ interface UserProfile {
   targetUniversity: string | null
   acceptanceRate: number | null
   nameVisibility: 'all' | 'friend' | 'none'
+  majorType: '전공자' | '비전공자' | null
+  schoolName: string | null
+  majorName: string | null
+  careerInterest: string | null
 }
 
 interface AuthContextType {
@@ -72,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       targetUniversity: data?.target_university ?? null,
       acceptanceRate: data?.acceptance_rate ?? null,
       nameVisibility: data?.name_visibility ?? 'friend',
+      majorType: data?.major_type ?? null,
+      schoolName: data?.school_name ?? null,
+      majorName: data?.major_name ?? null,
+      careerInterest: data?.career_interest ?? null,
     })
   }
 

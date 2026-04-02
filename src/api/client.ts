@@ -128,6 +128,7 @@ export interface Career {
   demandOutlook: string
   difficulty: string
   sortOrder: number
+  salaryMidVal: number | null
 }
 
 function mapCareer(raw: Record<string, unknown>): Career {
@@ -149,6 +150,7 @@ function mapCareer(raw: Record<string, unknown>): Career {
     demandOutlook: raw.demand_outlook as string,
     difficulty: raw.difficulty as string,
     sortOrder: (raw.sort_order as number) || 0,
+    salaryMidVal: (raw.salary_mid_val as number) ?? null,
   }
 }
 

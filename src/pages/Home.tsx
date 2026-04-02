@@ -267,6 +267,48 @@ export default function Home() {
             <div style={{ textAlign: 'center', padding: '60px 0' }}><Spin size="large" /></div>
           ) : (
             <>
+              {/* 연봉 비교 차트 */}
+              {careers.length > 0 && (
+                <Card
+                  style={{ borderRadius: 12, marginBottom: 40 }}
+                  styles={{ body: { padding: screens.sm ? '24px 28px' : '16px' } }}
+                  title={<span style={{ fontSize: 15, fontWeight: 700 }}>📊 직종별 경력 연봉 비교 (3~5년차 평균)</span>}
+                >
+                  {[...careers]
+                    .filter(c => c.salaryMidVal)
+                    .sort((a, b) => (b.salaryMidVal ?? 0) - (a.salaryMidVal ?? 0))
+                    .map(c => {
+                      const max = 6000;
+                      const pct = Math.round(((c.salaryMidVal ?? 0) / max) * 100);
+                      return (
+                        <div
+                          key={c.id}
+                          onClick={() => navigate(`/careers/${c.id}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, cursor: 'pointer' }}
+                        >
+                          <span style={{ fontSize: screens.sm ? 20 : 16, width: 24, textAlign: 'center', flexShrink: 0 }}>{c.emoji}</span>
+                          <Text style={{ width: screens.sm ? 180 : 110, fontSize: screens.sm ? 13 : 11, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {c.field}
+                          </Text>
+                          <div style={{ flex: 1, background: '#f0f0f0', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                            <div style={{
+                              width: `${pct}%`, height: '100%', borderRadius: 6,
+                              background: pct >= 90 ? 'linear-gradient(90deg,#1677ff,#69c0ff)' : pct >= 75 ? 'linear-gradient(90deg,#52c41a,#95de64)' : 'linear-gradient(90deg,#fa8c16,#ffc069)',
+                              transition: 'width 0.6s ease',
+                            }} />
+                          </div>
+                          <Text strong style={{ width: screens.sm ? 80 : 64, fontSize: screens.sm ? 13 : 11, color: '#1677ff', textAlign: 'right', flexShrink: 0 }}>
+                            {c.salaryMidVal?.toLocaleString()}만원
+                          </Text>
+                        </div>
+                      );
+                    })}
+                  <Text type="secondary" style={{ fontSize: 11, marginTop: 8, display: 'block' }}>
+                    * 경력 3~5년차 평균 기준 · 실제 연봉은 회사·개인 역량에 따라 다를 수 있음
+                  </Text>
+                </Card>
+              )}
+
               {careerCategories.map(category => (
                 <div key={category} style={{ marginBottom: 40 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
