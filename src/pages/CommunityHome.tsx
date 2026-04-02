@@ -51,6 +51,11 @@ export default function CommunityHome() {
       <div style={{ marginBottom: 32 }}>
         <Title level={2} style={{ margin: 0 }}>커뮤니티</Title>
         <Text type="secondary">디자인 입시생들과 함께 이야기해요</Text>
+        <div style={{ marginTop: 8 }}>
+          <Text style={{ fontSize: 11, color: '#bbb' }}>
+            ⚠ 욕설·비속어·혐오 표현 사용 시 경고 없이 이용이 제한될 수 있습니다.
+          </Text>
+        </div>
       </div>
 
       <Row gutter={[16, 16]}>

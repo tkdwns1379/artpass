@@ -576,7 +576,13 @@ export default function ChatRoom() {
               </Text>
             </div>
           ) : (
-            <div style={{ padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, background: '#fff' }}>
+            <div style={{ borderTop: '1px solid #f0f0f0', background: '#fff' }}>
+              <div style={{ padding: '4px 12px 0', textAlign: 'center' }}>
+                <Text style={{ fontSize: 10, color: '#ccc' }}>
+                  ⚠ 욕설·비속어·혐오 표현 사용 시 경고 없이 이용이 제한될 수 있습니다.
+                </Text>
+              </div>
+            <div style={{ padding: '8px 12px 10px', display: 'flex', gap: 8 }}>
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -590,6 +596,7 @@ export default function ChatRoom() {
                 onClick={handleSend} loading={sending}
                 disabled={!input.trim()}
               />
+            </div>
             </div>
           )}
         </div>

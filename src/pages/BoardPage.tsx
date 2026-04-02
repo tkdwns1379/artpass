@@ -237,6 +237,11 @@ export default function BoardPage() {
           {board?.description && (
             <Text type="secondary" style={{ fontSize: 14 }}>{board.description}</Text>
           )}
+          <div style={{ marginTop: 4 }}>
+            <Text style={{ fontSize: 11, color: '#bbb' }}>
+              ⚠ 욕설·비속어·혐오 표현 사용 시 경고 없이 이용이 제한될 수 있습니다.
+            </Text>
+          </div>
         </div>
         {user && (
           <Button
