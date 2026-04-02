@@ -14,6 +14,8 @@ import ChatRoom from '@/pages/ChatRoom';
 import CommunityHome from '@/pages/CommunityHome';
 import BoardPage from '@/pages/BoardPage';
 import PostDetail from '@/pages/PostDetail';
+import ResetPassword from '@/pages/ResetPassword';
+import CareerDetail from '@/pages/CareerDetail';
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +41,8 @@ function AppRoutes() {
         <Route path="community" element={<CommunityHome />} />
         <Route path="community/:boardId" element={<BoardPage />} />
         <Route path="community/:boardId/:postId" element={<PostDetail />} />
+        <Route path="reset-password" element={<ResetPassword />} />
+        <Route path="careers/:id" element={<CareerDetail />} />
       </Route>
     </Routes>
   );
