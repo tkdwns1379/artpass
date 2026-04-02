@@ -188,11 +188,11 @@ export default function ChatRoom() {
     });
   }, [user?.id, roomId]);
 
-  // 명시적 퇴장 (뒤로가기 버튼)
-  const handleExplicitLeave = useCallback(async () => {
+  // 명시적 퇴장 (뒤로가기 버튼) — navigate 먼저, leaveRoom 백그라운드 실행
+  const handleExplicitLeave = useCallback(() => {
     closeFloating();
-    await leaveRoom();
     navigate('/rooms');
+    leaveRoom(); // fire-and-forget: UI 즉시 반응, 서버 처리는 백그라운드
   }, [closeFloating, leaveRoom, navigate]);
 
   // FloatingChat에서 같은 방으로 돌아오면 expand
@@ -210,18 +210,25 @@ export default function ChatRoom() {
 
     (async () => {
       try {
-        await fetchRoom();
-        const map = await fetchProfiles([user.id]);
-        await joinRoom();
-        // 내 입장 시각 조회 → 그 이후 메시지만 표시
-        const { data: myMember } = await supabase
-          .from('room_members')
-          .select('joined_at')
-          .eq('room_id', roomId!)
-          .eq('user_id', user.id)
-          .single();
+        // fetchRoom + joinRoom + 내 입장시각 병렬 실행
+        const [, map] = await Promise.all([
+          fetchRoom(),
+          fetchProfiles([user.id]),
+          joinRoom(),
+        ]);
+
+        // joined_at + fetchMembers 병렬 실행
+        const [{ data: myMember }] = await Promise.all([
+          supabase
+            .from('room_members')
+            .select('joined_at')
+            .eq('room_id', roomId!)
+            .eq('user_id', user.id)
+            .single(),
+          fetchMembers(map),
+        ]);
+
         await fetchMessages(map, myMember?.joined_at);
-        await fetchMembers(map);
       } catch (err) {
         console.error('ChatRoom init error:', err);
       } finally {
